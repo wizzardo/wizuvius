@@ -1,0 +1,13 @@
+.idea
+.DS_Store
+.gradle
+build
+*.iml
+*~
+local.properties
+.externalNativeBuild
+.cxx
+.cdep
+cdep.sha256
+
+
