@@ -1,0 +1,12 @@
+apply plugin: "java-library"
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+dependencies {
+    api 'com.wizzardo.tools:tools:0.24-SNAPSHOT'
+    api 'org.joml:joml:1.10.3'
+    api 'org.lwjgl:lwjgl-vulkan:3.3.0'
+    api 'org.lwjgl:lwjgl-assimp:3.3.0'
+    api 'org.lwjgl:lwjgl-stb:3.3.0'
+}
