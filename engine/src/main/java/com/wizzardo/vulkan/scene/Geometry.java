@@ -1,4 +1,7 @@
-package com.wizzardo.vulkan;
+package com.wizzardo.vulkan.scene;
+
+import com.wizzardo.vulkan.Material;
+import com.wizzardo.vulkan.Mesh;
 
 public class Geometry extends Spatial {
     private Mesh mesh;

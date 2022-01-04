@@ -89,6 +89,39 @@ class SwapChainTools {
         return swapChainFramebuffers;
     }
 
+    protected static List<Long> createFramebuffers(
+            VkDevice device,
+            List<Long> swapChainImageViews,
+            long renderPass,
+            VkExtent2D swapChainExtent
+    ) {
+        List<Long> swapChainFramebuffers = new ArrayList<>(swapChainImageViews.size());
+        try (MemoryStack stack = stackPush()) {
+            LongBuffer attachments = stack.mallocLong(1);
+            LongBuffer pFramebuffer = stack.mallocLong(1);
+
+            // Lets allocate the create info struct once and just update the pAttachments field each iteration
+            VkFramebufferCreateInfo framebufferInfo = VkFramebufferCreateInfo.calloc(stack);
+            framebufferInfo.sType(VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO);
+            framebufferInfo.renderPass(renderPass);
+            framebufferInfo.width(swapChainExtent.width());
+            framebufferInfo.height(swapChainExtent.height());
+            framebufferInfo.layers(1);
+
+            for (long imageView : swapChainImageViews) {
+                attachments.put(0, imageView);
+                framebufferInfo.pAttachments(attachments);
+
+                if (vkCreateFramebuffer(device, framebufferInfo, null, pFramebuffer) != VK_SUCCESS) {
+                    throw new RuntimeException("Failed to create framebuffer");
+                }
+
+                swapChainFramebuffers.add(pFramebuffer.get(0));
+            }
+        }
+        return swapChainFramebuffers;
+    }
+
     public static class CreateSwapChainResult {
         public final long swapChain;
         public final List<Long> swapChainImages;
@@ -234,11 +267,11 @@ class SwapChainTools {
     }
 
     private static int chooseSwapPresentMode(IntBuffer availablePresentModes) {
-        for (int i = 0; i < availablePresentModes.capacity(); i++) {
-            if (availablePresentModes.get(i) == VK_PRESENT_MODE_MAILBOX_KHR) {
-                return availablePresentModes.get(i);
-            }
-        }
+//        for (int i = 0; i < availablePresentModes.capacity(); i++) {
+//            if (availablePresentModes.get(i) == VK_PRESENT_MODE_MAILBOX_KHR) {
+//                return availablePresentModes.get(i);
+//            }
+//        }
 
         return VK_PRESENT_MODE_FIFO_KHR;
     }

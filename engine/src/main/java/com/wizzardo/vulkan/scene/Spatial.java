@@ -1,4 +1,6 @@
-package com.wizzardo.vulkan;
+package com.wizzardo.vulkan.scene;
+
+import com.wizzardo.vulkan.Transform;
 
 public class Spatial {
     protected Transform localTransform = new Transform();

@@ -2,6 +2,8 @@ package com.wizzardo.vulkan;
 
 import static org.lwjgl.vulkan.VK10.vkDestroyDescriptorSetLayout;
 
+import com.wizzardo.vulkan.scene.Geometry;
+
 import org.lwjgl.vulkan.VkDevice;
 
 import java.util.List;

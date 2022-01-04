@@ -19,6 +19,8 @@ import static org.lwjgl.vulkan.VK10.VK_COLOR_COMPONENT_R_BIT;
 import static org.lwjgl.vulkan.VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 import static org.lwjgl.vulkan.VK10.VK_COMPARE_OP_LESS;
 import static org.lwjgl.vulkan.VK10.VK_CULL_MODE_BACK_BIT;
+import static org.lwjgl.vulkan.VK10.VK_CULL_MODE_FRONT_AND_BACK;
+import static org.lwjgl.vulkan.VK10.VK_CULL_MODE_NONE;
 import static org.lwjgl.vulkan.VK10.VK_FRONT_FACE_COUNTER_CLOCKWISE;
 import static org.lwjgl.vulkan.VK10.VK_INDEX_TYPE_UINT32;
 import static org.lwjgl.vulkan.VK10.VK_LOGIC_OP_COPY;
@@ -53,36 +55,30 @@ import static org.lwjgl.vulkan.VK10.vkCmdBindPipeline;
 import static org.lwjgl.vulkan.VK10.vkCmdBindVertexBuffers;
 import static org.lwjgl.vulkan.VK10.vkCmdDrawIndexed;
 import static org.lwjgl.vulkan.VK10.vkCmdEndRenderPass;
-import static org.lwjgl.vulkan.VK10.vkCreateFramebuffer;
 import static org.lwjgl.vulkan.VK10.vkCreateGraphicsPipelines;
 import static org.lwjgl.vulkan.VK10.vkCreatePipelineLayout;
 import static org.lwjgl.vulkan.VK10.vkDestroyCommandPool;
 import static org.lwjgl.vulkan.VK10.vkDestroyDescriptorPool;
 import static org.lwjgl.vulkan.VK10.vkDestroyDevice;
-import static org.lwjgl.vulkan.VK10.vkDestroyFramebuffer;
 import static org.lwjgl.vulkan.VK10.vkDestroyImage;
 import static org.lwjgl.vulkan.VK10.vkDestroyImageView;
 import static org.lwjgl.vulkan.VK10.vkDestroyInstance;
-import static org.lwjgl.vulkan.VK10.vkDestroyRenderPass;
 import static org.lwjgl.vulkan.VK10.vkDestroyShaderModule;
 import static org.lwjgl.vulkan.VK10.vkDeviceWaitIdle;
 import static org.lwjgl.vulkan.VK10.vkEndCommandBuffer;
-import static org.lwjgl.vulkan.VK10.vkFreeCommandBuffers;
 import static org.lwjgl.vulkan.VK10.vkFreeMemory;
 import static org.lwjgl.vulkan.VK10.vkGetInstanceProcAddr;
-import static org.lwjgl.vulkan.VK10.vkMapMemory;
 import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
-import static org.lwjgl.vulkan.VK10.vkResetCommandBuffer;
 import static org.lwjgl.vulkan.VK10.vkResetFences;
-import static org.lwjgl.vulkan.VK10.vkUnmapMemory;
 import static org.lwjgl.vulkan.VK10.vkWaitForFences;
 
 import static java.util.stream.Collectors.toSet;
 
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
+import com.wizzardo.vulkan.scene.Geometry;
 
-import org.lwjgl.PointerBuffer;
+import org.joml.Matrix4f;
 import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkAllocationCallbacks;
@@ -117,7 +113,6 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
@@ -164,24 +159,13 @@ public abstract class VulkanApplication extends Thread {
 
     private long swapChain;
     private List<Long> swapChainImages;
-    private VkExtent2D swapChainExtent;
     private List<Long> swapChainImageViews;
-    private List<Long> swapChainFramebuffers;
+    private Viewport mainViewport;
+    private Viewport guiViewport;
 
-    private long renderPass;
     private long descriptorPool;
-    //    private long descriptorSetLayout;
-    //    private long pipelineLayout;
-//    private long graphicsPipeline;
     private long commandPool;
     private DepthResources depthResources;
-    //    private BufferHolder vertexBuffer;
-//    private BufferHolder indexBuffer;
-//    private UniformBuffers uniformBuffers;
-    private List<VkCommandBuffer> commandBuffers;
-
-    private List<PreparedGeometry> preparedGeometries = new ArrayList<>();
-    private List<Spatial> spatials = new ArrayList<>();
 
     private SyncObjects syncObjects;
 
@@ -193,6 +177,7 @@ public abstract class VulkanApplication extends Thread {
 
 
     private long previousPrintFps = System.nanoTime();
+    private long previousFrame = System.nanoTime();
     private int fpsCounter = 0;
 
 
@@ -261,6 +246,13 @@ public abstract class VulkanApplication extends Thread {
         return device;
     }
 
+    public Viewport getMainViewport() {
+        return mainViewport;
+    }
+
+    public Viewport getGuiViewport() {
+        return guiViewport;
+    }
 
     protected void initVulkan() {
         instance = VulkanInstances.createInstance();
@@ -275,10 +267,21 @@ public abstract class VulkanApplication extends Thread {
         presentQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());
         commandPool = VulkanCommands.createCommandPool(device, indices);
 
+        mainViewport = new Viewport();
+        guiViewport = new Viewport();
+
         createSwapChainObjects();
 
+        mainViewport.camera.setProjection(45, (float) mainViewport.extent.width() / (float) mainViewport.extent.height(), 0.1f, 10f);
+        guiViewport.camera.setProjection(new Matrix4f(
+                2.0f, 0.0f, 0.0f, -0.0f,
+                0.0f, 2.0f, 0.0f, -0.0f,
+                0.0f, 0.0f, -2.0f, 1.0f,
+                0.0f, 0.0f, 0.0f, 1.0f).transpose());
+
         syncObjects = SwapChainTools.createSyncObjects(device, swapChainImages, MAX_FRAMES_IN_FLIGHT);
-        commandBuffers = VulkanCommands.createEmptyCommandBuffers(device, commandPool, swapChainImages.size());
+        mainViewport.setCommandBuffers(VulkanCommands.createEmptyCommandBuffers(device, commandPool, swapChainImages.size()));
+        guiViewport.setCommandBuffers(VulkanCommands.createEmptyCommandBuffers(device, commandPool, swapChainImages.size()));
     }
 
 
@@ -307,16 +310,26 @@ public abstract class VulkanApplication extends Thread {
         int swapChainImageFormat = result.swapChainImageFormat;
         swapChain = result.swapChain;
         swapChainImages = result.swapChainImages;
-        swapChainExtent = result.swapChainExtent;
+//        swapChainExtent = result.swapChainExtent;
+
+        mainViewport.setExtent(result.swapChainExtent);
+        guiViewport.setExtent(result.swapChainExtent);
 
         swapChainImageViews = SwapChainTools.createImageViews(device, swapChainImages, swapChainImageFormat);
-        renderPass = VulkanRenderPass.createRenderPass(physicalDevice, device, swapChainImageFormat);
+        mainViewport.setRenderPass(VulkanRenderPass.createRenderPass(physicalDevice, device, swapChainImageFormat));
+        guiViewport.setRenderPass(VulkanRenderPass.createGuiRenderPass(device, swapChainImageFormat));
 
-        depthResources = VulkanImages.createDepthResources(physicalDevice, device, swapChainExtent, graphicsQueue, commandPool);
-        swapChainFramebuffers = SwapChainTools.createFramebuffers(device, swapChainImageViews, depthResources.depthImageView, renderPass, swapChainExtent);
+        depthResources = VulkanImages.createDepthResources(physicalDevice, device, result.swapChainExtent, graphicsQueue, commandPool);
+        mainViewport.setSwapChainFramebuffers(SwapChainTools.createFramebuffers(device, swapChainImageViews, depthResources.depthImageView, mainViewport.getRenderPass(), mainViewport.getExtent()));
+        guiViewport.setSwapChainFramebuffers(SwapChainTools.createFramebuffers(device, swapChainImageViews, guiViewport.getRenderPass(), guiViewport.getExtent()));
         descriptorPool = VulkanDescriptorSets.createDescriptorPool(device, swapChainImages.size() * 100);
 
+        prepareGeometries(mainViewport);
+        prepareGeometries(guiViewport);
+    }
 
+    protected void prepareGeometries(Viewport viewport) {
+        List<PreparedGeometry> preparedGeometries = viewport.getPreparedGeometries();
         for (int i = 0; i < preparedGeometries.size(); i++) {
             PreparedGeometry geometry = preparedGeometries.get(i);
             Material material = geometry.geometry.getMaterial();
@@ -339,8 +352,8 @@ public abstract class VulkanApplication extends Thread {
                         device,
                         vertShaderSPIRV,
                         fragShaderSPIRV,
-                        swapChainExtent,
-                        renderPass,
+                        viewport.getExtent(),
+                        viewport.getRenderPass(),
                         geometry.descriptorSetLayout
                 );
                 material.pipelineLayout = pipeline.pipelineLayout;
@@ -359,6 +372,7 @@ public abstract class VulkanApplication extends Thread {
             );
             geometry.uniformBuffers = uniformBuffers;
         }
+
     }
 
     protected void mainLoop() {
@@ -383,19 +397,10 @@ public abstract class VulkanApplication extends Thread {
         vkDestroyImage(device, depthResources.depthImage, null);
         vkFreeMemory(device, depthResources.depthImageMemory, null);
 
-//        uniformBuffers.cleanup(device);
-
         vkDestroyDescriptorPool(device, descriptorPool, null);
 
-        swapChainFramebuffers.forEach(framebuffer -> vkDestroyFramebuffer(device, framebuffer, null));
-
-//        vkDestroyPipeline(device, graphicsPipeline, null);
-//        vkDestroyPipelineLayout(device, pipelineLayout, null);
-        vkDestroyRenderPass(device, renderPass, null);
-
-        for (PreparedGeometry preparedGeometry : preparedGeometries) {
-            preparedGeometry.cleanupSwapChainObjects(device);
-        }
+        mainViewport.cleanupSwapChain(device);
+        guiViewport.cleanupSwapChain(device);
 
         swapChainImageViews.forEach(imageView -> vkDestroyImageView(device, imageView, null));
 
@@ -405,13 +410,11 @@ public abstract class VulkanApplication extends Thread {
     protected void cleanup() {
         cleanupSwapChain();
 
-        for (PreparedGeometry preparedGeometry : preparedGeometries) {
-            preparedGeometry.cleanup(device);
-        }
+        mainViewport.cleanup(device, commandPool);
+        guiViewport.cleanup(device, commandPool);
 
         syncObjects.cleanup(device);
 
-        vkFreeCommandBuffers(device, commandPool, Utils.asPointerBuffer(commandBuffers));
         vkDestroyCommandPool(device, commandPool, null);
         vkDestroyDevice(device, null);
 
@@ -423,7 +426,7 @@ public abstract class VulkanApplication extends Thread {
         vkDestroyInstance(instance, null);
     }
 
-    public void addGeometry(Geometry geometry) {
+    public void addGeometry(Geometry geometry, Viewport viewport) {
         PreparedGeometry preparedGeometry = new PreparedGeometry(geometry);
         Mesh mesh = geometry.getMesh();
 
@@ -455,8 +458,8 @@ public abstract class VulkanApplication extends Thread {
                     device,
                     vertShaderSPIRV,
                     fragShaderSPIRV,
-                    swapChainExtent,
-                    renderPass,
+                    viewport.getExtent(),
+                    viewport.getRenderPass(),
                     preparedGeometry.descriptorSetLayout
             );
             material.pipelineLayout = pipeline.pipelineLayout;
@@ -475,7 +478,7 @@ public abstract class VulkanApplication extends Thread {
         );
         preparedGeometry.uniformBuffers = uniformBuffers;
 
-        preparedGeometries.add(preparedGeometry);
+        viewport.getPreparedGeometries().add(preparedGeometry);
     }
 
     protected static CreateGraphicsPipelineResult createGraphicsPipeline(
@@ -548,7 +551,8 @@ public abstract class VulkanApplication extends Thread {
             rasterizer.rasterizerDiscardEnable(false);
             rasterizer.polygonMode(VK_POLYGON_MODE_FILL);
             rasterizer.lineWidth(1.0f);
-            rasterizer.cullMode(VK_CULL_MODE_BACK_BIT);
+//            rasterizer.cullMode(VK_CULL_MODE_BACK_BIT);
+            rasterizer.cullMode(VK_CULL_MODE_NONE);
             rasterizer.frontFace(VK_FRONT_FACE_COUNTER_CLOCKWISE);
             rasterizer.depthBiasEnable(false);
 
@@ -632,26 +636,7 @@ public abstract class VulkanApplication extends Thread {
     }
 
 
-    private void updateModelUniformBuffer(long memoryAddress, Transform transform) {
-        try (MemoryStack stack = stackPush()) {
-            UniformBufferObject ubo = new UniformBufferObject();
-
-            ubo.model.translate(transform.getTranslation());
-            ubo.model.scale(transform.getScale());
-            ubo.model.rotate((float) (getTime() * Math.toRadians(90)), 0.0f, 0.0f, 1.0f);
-            ubo.view.lookAt(2.0f, 2.0f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-            ubo.proj.perspective((float) Math.toRadians(45),
-                    (float) swapChainExtent.width() / (float) swapChainExtent.height(), 0.1f, 10.0f);
-            ubo.proj.m11(ubo.proj.m11() * -1);
-
-            PointerBuffer data = stack.mallocPointer(1);
-            vkMapMemory(device, memoryAddress, 0, UniformBufferObject.SIZEOF, 0, data);
-            Utils.memcpy(data.getByteBuffer(0, UniformBufferObject.SIZEOF), ubo);
-            vkUnmapMemory(device, memoryAddress);
-        }
-    }
-
-    private double getTime() {
+    public double getTime() {
         return System.nanoTime() / 1_000_000_000.0;
     }
 
@@ -679,13 +664,17 @@ public abstract class VulkanApplication extends Thread {
 
             syncObjects.setByImage(imageIndex, thisFrame);
 
-            for (int i = 0; i < preparedGeometries.size(); i++) {
-                PreparedGeometry preparedGeometry = preparedGeometries.get(i);
-                long uniformAddress = preparedGeometry.uniformBuffers.uniformBuffersMemory.get(imageIndex);
-                updateModelUniformBuffer(uniformAddress, preparedGeometry.geometry.localTransform);
-            }
+            long time = System.nanoTime();
+            double tpf = (previousFrame - time) / 1_000_000_000.0;
+            previousFrame = time;
 
-            VkCommandBuffer commandBuffer = recordCommands(preparedGeometries, imageIndex);
+            simpleUpdate(tpf);
+
+            mainViewport.updateModelUniformBuffers(this, imageIndex);
+            guiViewport.updateModelUniformBuffers(this, imageIndex);
+
+            VkCommandBuffer commandBuffer = recordCommands(mainViewport, imageIndex);
+            VkCommandBuffer guiCommandBuffer = recordCommands(guiViewport, imageIndex);
 
             VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack);
             submitInfo.sType(VK_STRUCTURE_TYPE_SUBMIT_INFO);
@@ -694,7 +683,7 @@ public abstract class VulkanApplication extends Thread {
             submitInfo.pWaitSemaphores(thisFrame.pImageAvailableSemaphore(stack));
             submitInfo.pWaitDstStageMask(stack.ints(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT));
             submitInfo.pSignalSemaphores(thisFrame.pRenderFinishedSemaphore(stack));
-            submitInfo.pCommandBuffers(stack.pointers(commandBuffer));
+            submitInfo.pCommandBuffers(stack.pointers(commandBuffer, guiCommandBuffer));
 
             vkResetFences(device, thisFrame.pFence(stack));
 
@@ -727,22 +716,25 @@ public abstract class VulkanApplication extends Thread {
             currentFrame = (currentFrame + 1) % syncObjects.getFramesCount();
         }
 
-//        fpsCounter++;
-//        long time = System.nanoTime();
-//        if (time - previousPrintFps >= 1_000_000_000) {
-//            System.out.println("fps: " + fpsCounter);
-//            fpsCounter = 0;
-//            previousPrintFps = time;
-//        }
+        fpsCounter++;
+        long time = System.nanoTime();
+        if (time - previousPrintFps >= 1_000_000_000) {
+            System.out.println("fps: " + fpsCounter);
+            fpsCounter = 0;
+            previousPrintFps = time;
+        }
     }
 
-    protected VkCommandBuffer recordCommands(List<PreparedGeometry> preparedGeometries, int imageIndex) {
-        try (MemoryStack stack = stackPush()) {
-            VkCommandBuffer commandBuffer = commandBuffers.get(imageIndex);
+    protected void simpleUpdate(double tpf) {
+    }
 
-            if (vkResetCommandBuffer(commandBuffer, 0) != VK_SUCCESS) {
-                throw new RuntimeException("Failed to reset command buffer");
-            }
+    protected VkCommandBuffer recordCommands(Viewport viewport, int imageIndex) {
+        try (MemoryStack stack = stackPush()) {
+            VkCommandBuffer commandBuffer = viewport.getCommandBuffers().get(imageIndex);
+
+//            if (vkResetCommandBuffer(commandBuffer, 0) != VK_SUCCESS) {
+//                throw new RuntimeException("Failed to reset command buffer");
+//            }
 
             VkCommandBufferBeginInfo beginInfo = VkCommandBufferBeginInfo.calloc(stack);
             beginInfo.sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
@@ -751,11 +743,11 @@ public abstract class VulkanApplication extends Thread {
             VkRenderPassBeginInfo renderPassInfo = VkRenderPassBeginInfo.calloc(stack);
             renderPassInfo.sType(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
 
-            renderPassInfo.renderPass(renderPass);
+            renderPassInfo.renderPass(viewport.getRenderPass());
 
             VkRect2D renderArea = VkRect2D.calloc(stack);
-            renderArea.offset(VkOffset2D.calloc(stack).set(0, 0));
-            renderArea.extent(swapChainExtent);
+            renderArea.offset(viewport.getOffset());
+            renderArea.extent(viewport.getExtent());
             renderPassInfo.renderArea(renderArea);
 
             VkClearValue.Buffer clearValues = VkClearValue.calloc(2, stack);
@@ -767,12 +759,13 @@ public abstract class VulkanApplication extends Thread {
                 throw new RuntimeException("Failed to begin recording command buffer");
             }
 
-            renderPassInfo.framebuffer(swapChainFramebuffers.get(imageIndex));
+            renderPassInfo.framebuffer(viewport.getSwapChainFramebuffers().get(imageIndex));
 
             vkCmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
             long previousGraphicsPipeline = 0;
             Mesh previousMesh = null;
+            List<PreparedGeometry> preparedGeometries = viewport.getPreparedGeometries();
             for (int j = 0; j < preparedGeometries.size(); j++) {
                 PreparedGeometry geometry = preparedGeometries.get(j);
 
