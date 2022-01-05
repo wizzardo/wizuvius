@@ -1,3 +1,5 @@
 include ':app',
-        ':engine'
+        ':engine',
+        ':engine-desktop',
+        ':sample'
 

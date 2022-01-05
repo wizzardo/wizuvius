@@ -1,5 +1,6 @@
 package com.wizzardo.vulkan;
 
+import com.wizzardo.vulkan.scene.Spatial;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;

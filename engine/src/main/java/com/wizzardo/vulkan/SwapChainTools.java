@@ -150,7 +150,7 @@ class SwapChainTools {
             int presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
             VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities, width, height);
 
-            IntBuffer imageCount = stack.ints(swapChainSupport.capabilities.minImageCount() + 1);
+            IntBuffer imageCount = stack.ints(swapChainSupport.capabilities.minImageCount());
 
             if (swapChainSupport.capabilities.maxImageCount() > 0 && imageCount.get(0) > swapChainSupport.capabilities.maxImageCount()) {
                 imageCount.put(0, swapChainSupport.capabilities.maxImageCount());

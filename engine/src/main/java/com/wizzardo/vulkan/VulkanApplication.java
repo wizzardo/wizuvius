@@ -113,10 +113,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -124,10 +121,8 @@ import java.util.stream.Stream;
 public abstract class VulkanApplication extends Thread {
 
     private static final long UINT64_MAX = 0xFFFFFFFFFFFFFFFFL;
-    private static final int WIDTH = 800;
-    private static final int HEIGHT = 600;
     static final Set<String> VALIDATION_LAYERS;
-    public static final boolean ENABLE_VALIDATION_LAYERS = DEBUG.get(false);
+    public static final boolean ENABLE_VALIDATION_LAYERS = DEBUG.get(true);
     public static final int MAX_FRAMES_IN_FLIGHT = 2;
     public static final String applicationName = "Hello Triangle";
     public static final String engineName = "No Engine";
@@ -254,8 +249,12 @@ public abstract class VulkanApplication extends Thread {
         return guiViewport;
     }
 
+    protected VulkanInstances getVulkanInstanceFactory() {
+        return new VulkanInstances();
+    }
+
     protected void initVulkan() {
-        instance = VulkanInstances.createInstance();
+        instance = getVulkanInstanceFactory().createInstance();
         debugMessenger = DebugTools.setupDebugMessenger(instance);
         surface = createSurface(instance);
         physicalDevice = VulkanDevices.pickPhysicalDevice(instance, surface);
@@ -377,19 +376,23 @@ public abstract class VulkanApplication extends Thread {
 
     protected void mainLoop() {
         while (running) {
-            drawFrame();
-
-            while (!tasks.isEmpty()) {
-                try {
-                    tasks.poll().run();
-                } catch (Exception e) {
-                    logE(e::getMessage, e);
-                }
-            }
+            doInLoop();
         }
 
         // Wait for the device to complete all operations before release resources
         vkDeviceWaitIdle(device);
+    }
+
+    protected void doInLoop() {
+        drawFrame();
+
+        while (!tasks.isEmpty()) {
+            try {
+                tasks.poll().run();
+            } catch (Exception e) {
+                logE(e::getMessage, e);
+            }
+        }
     }
 
     protected void cleanupSwapChain() {
@@ -640,7 +643,7 @@ public abstract class VulkanApplication extends Thread {
         return System.nanoTime() / 1_000_000_000.0;
     }
 
-    private void drawFrame() {
+    protected void drawFrame() {
         try (MemoryStack stack = stackPush()) {
             Frame thisFrame = syncObjects.getFrame(currentFrame);
             vkWaitForFences(device, thisFrame.pFence(stack), true, UINT64_MAX);
@@ -665,7 +668,7 @@ public abstract class VulkanApplication extends Thread {
             syncObjects.setByImage(imageIndex, thisFrame);
 
             long time = System.nanoTime();
-            double tpf = (previousFrame - time) / 1_000_000_000.0;
+            double tpf = (time - previousFrame) / 1_000_000_000.0;
             previousFrame = time;
 
             simpleUpdate(tpf);

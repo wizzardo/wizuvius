@@ -1,0 +1,17 @@
+apply plugin: "java-library"
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+dependencies {
+    api(project(":engine"))
+
+    def natives = 'natives-linux'
+    api "org.lwjgl:lwjgl:3.3.0:${natives}"
+    api "org.lwjgl:lwjgl-glfw:3.3.0"
+    api "org.lwjgl:lwjgl-glfw:3.3.0:${natives}"
+    api "org.lwjgl:lwjgl-stb:3.3.0:${natives}"
+    api "org.lwjgl:lwjgl-assimp:3.3.0:${natives}"
+    api "org.lwjgl:lwjgl-shaderc:3.3.0"
+    api "org.lwjgl:lwjgl-shaderc:3.3.0:${natives}"
+}

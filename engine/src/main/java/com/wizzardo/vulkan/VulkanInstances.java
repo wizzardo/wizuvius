@@ -18,7 +18,7 @@ import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkInstanceCreateInfo;
 
 public class VulkanInstances {
-    static VkInstance createInstance() {
+    public VkInstance createInstance() {
         if (VulkanApplication.ENABLE_VALIDATION_LAYERS && !DebugTools.checkValidationLayerSupport()) {
             throw new RuntimeException("Validation requested but not supported");
         }
@@ -58,7 +58,7 @@ public class VulkanInstances {
         }
     }
 
-    static PointerBuffer getRequiredExtensions() {
+    public PointerBuffer getRequiredExtensions() {
         MemoryStack stack = stackGet();
         PointerBuffer extensions = stack.mallocPointer(2 + (VulkanApplication.ENABLE_VALIDATION_LAYERS ? 1 : 0));
         extensions.put(stack.UTF8("VK_KHR_surface"));
