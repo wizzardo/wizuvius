@@ -65,7 +65,7 @@ public class DesktopVulkanApplication extends VulkanApplication {
 
         String title = getClass().getSimpleName();
 
-        window = glfwCreateWindow(1280, 720, title, NULL, NULL);
+        window = glfwCreateWindow(width, height, title, NULL, NULL);
 
         if (window == NULL) {
             throw new RuntimeException("Cannot create window");
