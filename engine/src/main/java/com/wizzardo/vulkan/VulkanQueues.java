@@ -1,10 +1,7 @@
 package com.wizzardo.vulkan;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
-import static org.lwjgl.vulkan.VK10.VK_QUEUE_GRAPHICS_BIT;
-import static org.lwjgl.vulkan.VK10.vkGetDeviceQueue;
-import static org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceQueueFamilyProperties;
+import static org.lwjgl.vulkan.VK10.*;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -29,9 +26,16 @@ public class VulkanQueues {
 //            IntBuffer presentSupport = stack.ints(VK_FALSE);
 
             for (int i = 0; i < queueFamilies.capacity() || !indices.isComplete(); i++) {
-
-                if ((queueFamilies.get(i).queueFlags() & VK_QUEUE_GRAPHICS_BIT) != 0) {
+                VkQueueFamilyProperties vkQueueFamilyProperties = queueFamilies.get(i);
+                int flags = vkQueueFamilyProperties.queueFlags();
+                if ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) {
                     indices.setGraphicsFamily(i);
+                }
+                if ((flags & VK_QUEUE_TRANSFER_BIT) != 0) {
+                    indices.setTransferFamily(i);
+                }
+                if ((flags & VK_QUEUE_COMPUTE_BIT) != 0) {
+                    indices.setComputeFamily(i);
                 }
 
 //                vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, presentSupport);

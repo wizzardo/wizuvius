@@ -7,11 +7,9 @@ import static org.lwjgl.vulkan.VK10.vkFreeCommandBuffers;
 import static org.lwjgl.vulkan.VK10.vkMapMemory;
 import static org.lwjgl.vulkan.VK10.vkUnmapMemory;
 
+import com.wizzardo.vulkan.scene.Geometry;
 import com.wizzardo.vulkan.scene.Node;
 
-import org.joml.Matrix4d;
-import org.joml.Vector3f;
-import org.joml.Vector3fc;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkCommandBuffer;
@@ -29,7 +27,7 @@ public class Viewport {
     protected long renderPass;
     protected List<Long> swapChainFramebuffers;
     protected List<VkCommandBuffer> commandBuffers;
-    protected List<PreparedGeometry> preparedGeometries = new ArrayList<>();
+    protected List<Geometry> geometries = new ArrayList<>();
     protected VkExtent2D extent;
     protected VkOffset2D offset = VkOffset2D.create().set(0, 0);
 
@@ -73,12 +71,12 @@ public class Viewport {
         this.commandBuffers = commandBuffers;
     }
 
-    public List<PreparedGeometry> getPreparedGeometries() {
-        return preparedGeometries;
+    public List<Geometry> getGeometries() {
+        return geometries;
     }
 
-    public void setPreparedGeometries(List<PreparedGeometry> preparedGeometries) {
-        this.preparedGeometries = preparedGeometries;
+    public void setGeometries(List<Geometry> geometries) {
+        this.geometries = geometries;
     }
 
     public VkExtent2D getExtent() {
@@ -102,13 +100,13 @@ public class Viewport {
         swapChainFramebuffers.forEach(framebuffer -> vkDestroyFramebuffer(device, framebuffer, null));
         vkDestroyRenderPass(device, renderPass, null);
 
-        for (PreparedGeometry preparedGeometry : preparedGeometries) {
+        for (Geometry preparedGeometry : geometries) {
             preparedGeometry.cleanupSwapChainObjects(device);
         }
     }
 
     protected void cleanup(VkDevice device, long commandPool) {
-        for (PreparedGeometry preparedGeometry : preparedGeometries) {
+        for (Geometry preparedGeometry : geometries) {
             preparedGeometry.cleanup(device);
         }
 
@@ -119,10 +117,10 @@ public class Viewport {
 //        camera.view.setLookAt(camera.getLocation(), camera.getDirection(), Vectors.UNIT_Z);
         Camera.fromFrame(camera.getLocation(), camera.getDirection(), camera.getUp(), camera.view);
 
-        for (int i = 0; i < preparedGeometries.size(); i++) {
-            PreparedGeometry preparedGeometry = preparedGeometries.get(i);
-            long uniformAddress = preparedGeometry.uniformBuffers.uniformBuffersMemory.get(imageIndex);
-            updateModelUniformBuffer(app, uniformAddress, preparedGeometry.geometry.getLocalTransform());
+        for (int i = 0; i < geometries.size(); i++) {
+            Geometry geometry = geometries.get(i);
+            long uniformAddress = geometry.getUniformBuffers().uniformBuffersMemory.get(imageIndex);
+            updateModelUniformBuffer(app, uniformAddress, geometry.getLocalTransform());
         }
     }
 

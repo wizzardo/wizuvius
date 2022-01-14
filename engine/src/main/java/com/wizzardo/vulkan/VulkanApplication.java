@@ -12,73 +12,16 @@ import static org.lwjgl.vulkan.KHRSwapchain.VK_SUBOPTIMAL_KHR;
 import static org.lwjgl.vulkan.KHRSwapchain.vkAcquireNextImageKHR;
 import static org.lwjgl.vulkan.KHRSwapchain.vkDestroySwapchainKHR;
 import static org.lwjgl.vulkan.KHRSwapchain.vkQueuePresentKHR;
-import static org.lwjgl.vulkan.VK10.VK_COLOR_COMPONENT_A_BIT;
-import static org.lwjgl.vulkan.VK10.VK_COLOR_COMPONENT_B_BIT;
-import static org.lwjgl.vulkan.VK10.VK_COLOR_COMPONENT_G_BIT;
-import static org.lwjgl.vulkan.VK10.VK_COLOR_COMPONENT_R_BIT;
-import static org.lwjgl.vulkan.VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-import static org.lwjgl.vulkan.VK10.VK_COMPARE_OP_LESS;
-import static org.lwjgl.vulkan.VK10.VK_CULL_MODE_BACK_BIT;
-import static org.lwjgl.vulkan.VK10.VK_CULL_MODE_FRONT_AND_BACK;
-import static org.lwjgl.vulkan.VK10.VK_CULL_MODE_NONE;
-import static org.lwjgl.vulkan.VK10.VK_FRONT_FACE_COUNTER_CLOCKWISE;
-import static org.lwjgl.vulkan.VK10.VK_INDEX_TYPE_UINT32;
-import static org.lwjgl.vulkan.VK10.VK_LOGIC_OP_COPY;
-import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
-import static org.lwjgl.vulkan.VK10.VK_PIPELINE_BIND_POINT_GRAPHICS;
-import static org.lwjgl.vulkan.VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-import static org.lwjgl.vulkan.VK10.VK_POLYGON_MODE_FILL;
-import static org.lwjgl.vulkan.VK10.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-import static org.lwjgl.vulkan.VK10.VK_SAMPLE_COUNT_1_BIT;
-import static org.lwjgl.vulkan.VK10.VK_SHADER_STAGE_FRAGMENT_BIT;
-import static org.lwjgl.vulkan.VK10.VK_SHADER_STAGE_VERTEX_BIT;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO;
-import static org.lwjgl.vulkan.VK10.VK_SUBPASS_CONTENTS_INLINE;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
-import static org.lwjgl.vulkan.VK10.vkBeginCommandBuffer;
-import static org.lwjgl.vulkan.VK10.vkCmdBeginRenderPass;
-import static org.lwjgl.vulkan.VK10.vkCmdBindDescriptorSets;
-import static org.lwjgl.vulkan.VK10.vkCmdBindIndexBuffer;
-import static org.lwjgl.vulkan.VK10.vkCmdBindPipeline;
-import static org.lwjgl.vulkan.VK10.vkCmdBindVertexBuffers;
-import static org.lwjgl.vulkan.VK10.vkCmdDrawIndexed;
-import static org.lwjgl.vulkan.VK10.vkCmdEndRenderPass;
-import static org.lwjgl.vulkan.VK10.vkCreateGraphicsPipelines;
-import static org.lwjgl.vulkan.VK10.vkCreatePipelineLayout;
-import static org.lwjgl.vulkan.VK10.vkDestroyCommandPool;
-import static org.lwjgl.vulkan.VK10.vkDestroyDescriptorPool;
-import static org.lwjgl.vulkan.VK10.vkDestroyDevice;
-import static org.lwjgl.vulkan.VK10.vkDestroyImage;
-import static org.lwjgl.vulkan.VK10.vkDestroyImageView;
-import static org.lwjgl.vulkan.VK10.vkDestroyInstance;
-import static org.lwjgl.vulkan.VK10.vkDestroyShaderModule;
-import static org.lwjgl.vulkan.VK10.vkDeviceWaitIdle;
-import static org.lwjgl.vulkan.VK10.vkEndCommandBuffer;
-import static org.lwjgl.vulkan.VK10.vkFreeMemory;
-import static org.lwjgl.vulkan.VK10.vkGetInstanceProcAddr;
-import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
-import static org.lwjgl.vulkan.VK10.vkResetFences;
-import static org.lwjgl.vulkan.VK10.vkWaitForFences;
 
 import static java.util.stream.Collectors.toSet;
+import static org.lwjgl.vulkan.VK10.*;
 
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.scene.Geometry;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkAllocationCallbacks;
@@ -150,6 +93,7 @@ public abstract class VulkanApplication extends Thread {
     private VkDevice device;
 
     private VkQueue graphicsQueue;
+    private VkQueue transferQueue;
     private VkQueue presentQueue;
 
     private long swapChain;
@@ -165,8 +109,8 @@ public abstract class VulkanApplication extends Thread {
     private SyncObjects syncObjects;
 
     private int currentFrame;
-    private volatile int width;
-    private volatile int height;
+    protected volatile int width;
+    protected volatile int height;
     private boolean framebufferResize;
     private Queue<Runnable> tasks = new ConcurrentLinkedQueue<>();
 
@@ -219,7 +163,7 @@ public abstract class VulkanApplication extends Thread {
             buffer.flip();
             return buffer;
         });
-        return TextureLoader.createTextureImage(physicalDevice, device, graphicsQueue, commandPool, loader);
+        return TextureLoader.createTextureImage(physicalDevice, device, transferQueue, commandPool, loader);
     }
 
     public long createTextureSampler(int mipLevels) {
@@ -239,6 +183,30 @@ public abstract class VulkanApplication extends Thread {
 
     public VkDevice getDevice() {
         return device;
+    }
+
+    public VkPhysicalDevice getPhysicalDevice() {
+        return physicalDevice;
+    }
+
+    public long getCommandPool() {
+        return commandPool;
+    }
+
+    public long getDescriptorPool() {
+        return descriptorPool;
+    }
+
+    public List<Long> getSwapChainImages() {
+        return swapChainImages;
+    }
+
+    public VkQueue getGraphicsQueue() {
+        return graphicsQueue;
+    }
+
+    public VkQueue getTransferQueue() {
+        return transferQueue;
     }
 
     public Viewport getMainViewport() {
@@ -262,6 +230,8 @@ public abstract class VulkanApplication extends Thread {
         QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(physicalDevice);
         device = VulkanDevices.createLogicalDevice(physicalDevice, indices);
         graphicsQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());
+        transferQueue = VulkanQueues.createQueue(device, indices.getTransferFamily());
+//        System.out.println(indices);
 //        presentQueue = createPresentQueue(device, indices.presentFamily);
         presentQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());
         commandPool = VulkanCommands.createCommandPool(device, indices);
@@ -271,12 +241,39 @@ public abstract class VulkanApplication extends Thread {
 
         createSwapChainObjects();
 
-        mainViewport.camera.setProjection(45, (float) mainViewport.extent.width() / (float) mainViewport.extent.height(), 0.1f, 10f);
+        mainViewport.camera.setProjection(
+                45,
+                (float) mainViewport.extent.width() / (float) mainViewport.extent.height(),
+                0.1f,
+                10f
+        );
+        System.out.println(width + "x" + height);
+//        guiViewport.camera.setProjection(new Matrix4f(
+//                2.0f / width, 0.0f, 0.0f, -0.0f,
+//                0.0f, 2.0f / height, 0.0f, -0.0f,
+//                0.0f, 0.0f, -2.0f, 1.0f,
+//                0.0f, 0.0f, 0.0f, 1.0f
+//                ).transpose()
+//        );
+
+        float n = 0.1f;
+        float f = 1.5f;
+        float r = 0.5f;
+        float l = -0.5f;
+        float t = 0.5f;
+        float b = -0.5f;
         guiViewport.camera.setProjection(new Matrix4f(
-                2.0f, 0.0f, 0.0f, -0.0f,
-                0.0f, 2.0f, 0.0f, -0.0f,
-                0.0f, 0.0f, -2.0f, 1.0f,
-                0.0f, 0.0f, 0.0f, 1.0f).transpose());
+                        2.0f / (r - l) / width, 0.0f, 0.0f, -(r + l) / (r - l),
+                        0.0f, -2.0f / (t - b) / height, 0.0f, -(t + b) / (t - b),
+                        0.0f, 0.0f, -2.0f / (f - n), -(f + n) / (f - n),
+                        0.0f, 0.0f, 0.0f, 1.0f
+                )
+//                .transpose()
+        );
+
+        guiViewport.camera.lookAt(new Vector3f(0, 0, 1), new Vector3f(0, -1, 0));
+        guiViewport.camera.getLocation().x = width / 2f;
+        guiViewport.camera.getLocation().y = height / 2f;
 
         syncObjects = SwapChainTools.createSyncObjects(device, swapChainImages, MAX_FRAMES_IN_FLIGHT);
         mainViewport.setCommandBuffers(VulkanCommands.createEmptyCommandBuffers(device, commandPool, swapChainImages.size()));
@@ -328,48 +325,11 @@ public abstract class VulkanApplication extends Thread {
     }
 
     protected void prepareGeometries(Viewport viewport) {
-        List<PreparedGeometry> preparedGeometries = viewport.getPreparedGeometries();
+        List<Geometry> preparedGeometries = viewport.getGeometries();
         for (int i = 0; i < preparedGeometries.size(); i++) {
-            PreparedGeometry geometry = preparedGeometries.get(i);
-            Material material = geometry.geometry.getMaterial();
-            if (material.pipelineLayout == 0L) {
-                ByteBuffer vertShaderSPIRV = Unchecked.call(() -> {
-                    byte[] bytes = IOTools.bytes(loadAsset(material.vertexShader));
-                    ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
-                    buffer.put(bytes);
-                    buffer.flip();
-                    return buffer;
-                });
-                ByteBuffer fragShaderSPIRV = Unchecked.call(() -> {
-                    byte[] bytes = IOTools.bytes(loadAsset(material.fragmentShader));
-                    ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
-                    buffer.put(bytes);
-                    buffer.flip();
-                    return buffer;
-                });
-                CreateGraphicsPipelineResult pipeline = createGraphicsPipeline(
-                        device,
-                        vertShaderSPIRV,
-                        fragShaderSPIRV,
-                        viewport.getExtent(),
-                        viewport.getRenderPass(),
-                        geometry.descriptorSetLayout
-                );
-                material.pipelineLayout = pipeline.pipelineLayout;
-                material.graphicsPipeline = pipeline.graphicsPipeline;
-            }
-
-            UniformBuffers uniformBuffers = UniformBuffers.createUniformBuffers(physicalDevice, device, swapChainImages);
-
-            geometry.descriptorSets = VulkanDescriptorSets.createDescriptorSets(device,
-                    swapChainImages,
-                    geometry.descriptorSetLayout,
-                    descriptorPool,
-                    material.textureImage.textureImageView,
-                    material.textureSampler,
-                    uniformBuffers.uniformBuffers
-            );
-            geometry.uniformBuffers = uniformBuffers;
+            Geometry geometry = preparedGeometries.get(i);
+            geometry.getMaterial().prepare(this, viewport);
+            geometry.prepare(this);
         }
 
     }
@@ -430,58 +390,18 @@ public abstract class VulkanApplication extends Thread {
     }
 
     public void addGeometry(Geometry geometry, Viewport viewport) {
-        PreparedGeometry preparedGeometry = new PreparedGeometry(geometry);
         Mesh mesh = geometry.getMesh();
 
         if (mesh.getVertexBuffer() == null || mesh.getIndexBuffer() == null) {
-            mesh.setVertexBuffer(Utils.createVertexBuffer(physicalDevice, device, graphicsQueue, commandPool, mesh.getVertices()));
-            mesh.setIndexBuffer(Utils.createIndexBuffer(physicalDevice, device, graphicsQueue, commandPool, mesh.getIndices()));
+            mesh.setVertexBuffer(Utils.createVertexBuffer(physicalDevice, device, transferQueue, commandPool, mesh.getVertices()));
+            mesh.setIndexBuffer(Utils.createIndexBuffer(physicalDevice, device, transferQueue, commandPool, mesh.getIndices()));
             mesh.setIndicesLength(mesh.getIndices().length);
         }
 
-        preparedGeometry.descriptorSetLayout = VulkanDescriptorSets.createDescriptorSetLayout(device);
+        geometry.getMaterial().prepare(this, viewport);
+        geometry.prepare(this);
 
-        Material material = geometry.getMaterial();
-        if (material.pipelineLayout == 0L) {
-            ByteBuffer vertShaderSPIRV = Unchecked.call(() -> {
-                byte[] bytes = IOTools.bytes(loadAsset(material.vertexShader));
-                ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
-                buffer.put(bytes);
-                buffer.flip();
-                return buffer;
-            });
-            ByteBuffer fragShaderSPIRV = Unchecked.call(() -> {
-                byte[] bytes = IOTools.bytes(loadAsset(material.fragmentShader));
-                ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
-                buffer.put(bytes);
-                buffer.flip();
-                return buffer;
-            });
-            CreateGraphicsPipelineResult pipeline = createGraphicsPipeline(
-                    device,
-                    vertShaderSPIRV,
-                    fragShaderSPIRV,
-                    viewport.getExtent(),
-                    viewport.getRenderPass(),
-                    preparedGeometry.descriptorSetLayout
-            );
-            material.pipelineLayout = pipeline.pipelineLayout;
-            material.graphicsPipeline = pipeline.graphicsPipeline;
-        }
-
-        UniformBuffers uniformBuffers = UniformBuffers.createUniformBuffers(physicalDevice, device, swapChainImages);
-
-        preparedGeometry.descriptorSets = VulkanDescriptorSets.createDescriptorSets(device,
-                swapChainImages,
-                preparedGeometry.descriptorSetLayout,
-                descriptorPool,
-                material.textureImage.textureImageView,
-                material.textureSampler,
-                uniformBuffers.uniformBuffers
-        );
-        preparedGeometry.uniformBuffers = uniformBuffers;
-
-        viewport.getPreparedGeometries().add(preparedGeometry);
+        viewport.getGeometries().add(geometry);
     }
 
     protected static CreateGraphicsPipelineResult createGraphicsPipeline(
@@ -580,7 +500,13 @@ public abstract class VulkanApplication extends Thread {
 
             VkPipelineColorBlendAttachmentState.Buffer colorBlendAttachment = VkPipelineColorBlendAttachmentState.calloc(1, stack);
             colorBlendAttachment.colorWriteMask(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
-            colorBlendAttachment.blendEnable(false);
+            colorBlendAttachment.blendEnable(true);
+            colorBlendAttachment.srcColorBlendFactor(VK_BLEND_FACTOR_SRC_ALPHA);
+            colorBlendAttachment.dstColorBlendFactor(VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA);
+            colorBlendAttachment.colorBlendOp(VK_BLEND_OP_ADD);
+            colorBlendAttachment.srcAlphaBlendFactor(VK_BLEND_FACTOR_ONE);
+            colorBlendAttachment.dstAlphaBlendFactor(VK_BLEND_FACTOR_ZERO);
+            colorBlendAttachment.alphaBlendOp(VK_BLEND_OP_ADD);
 
             VkPipelineColorBlendStateCreateInfo colorBlending = VkPipelineColorBlendStateCreateInfo.calloc(stack);
             colorBlending.sType(VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO);
@@ -645,7 +571,7 @@ public abstract class VulkanApplication extends Thread {
 
     protected void drawFrame() {
         try (MemoryStack stack = stackPush()) {
-            Frame thisFrame = syncObjects.getFrame(currentFrame);
+            Frame thisFrame = getCurrentFrame();
             vkWaitForFences(device, thisFrame.pFence(stack), true, UINT64_MAX);
 
             IntBuffer pImageIndex = stack.mallocInt(1);
@@ -663,6 +589,8 @@ public abstract class VulkanApplication extends Thread {
             Frame prev = syncObjects.byImage(imageIndex);
             if (prev != null) {
                 vkWaitForFences(device, prev.pFence(stack), true, UINT64_MAX);
+                prev.onFinish();
+                prev.resetListeners();
             }
 
             syncObjects.setByImage(imageIndex, thisFrame);
@@ -728,6 +656,10 @@ public abstract class VulkanApplication extends Thread {
         }
     }
 
+    public Frame getCurrentFrame() {
+        return syncObjects.getFrame(currentFrame);
+    }
+
     protected void simpleUpdate(double tpf) {
     }
 
@@ -768,17 +700,17 @@ public abstract class VulkanApplication extends Thread {
 
             long previousGraphicsPipeline = 0;
             Mesh previousMesh = null;
-            List<PreparedGeometry> preparedGeometries = viewport.getPreparedGeometries();
-            for (int j = 0; j < preparedGeometries.size(); j++) {
-                PreparedGeometry geometry = preparedGeometries.get(j);
+            List<Geometry> geometries = viewport.getGeometries();
+            for (int j = 0; j < geometries.size(); j++) {
+                Geometry geometry = geometries.get(j);
 
-                long graphicsPipeline = geometry.geometry.getMaterial().graphicsPipeline;
+                long graphicsPipeline = geometry.getMaterial().graphicsPipeline;
                 if (graphicsPipeline != previousGraphicsPipeline) {
                     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
                     previousGraphicsPipeline = graphicsPipeline;
                 }
 
-                Mesh mesh = geometry.geometry.getMesh();
+                Mesh mesh = geometry.getMesh();
                 if (mesh != previousMesh) {
                     LongBuffer vertexBuffers = stack.longs(mesh.getVertexBuffer().buffer);
                     LongBuffer offsets = stack.longs(0);
@@ -790,9 +722,9 @@ public abstract class VulkanApplication extends Thread {
                 vkCmdBindDescriptorSets(
                         commandBuffer,
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
-                        geometry.geometry.getMaterial().pipelineLayout,
+                        geometry.getMaterial().pipelineLayout,
                         0,
-                        stack.longs(geometry.descriptorSets.get(imageIndex)),
+                        stack.longs(geometry.getDescriptorSet(imageIndex)),
                         null
                 );
 

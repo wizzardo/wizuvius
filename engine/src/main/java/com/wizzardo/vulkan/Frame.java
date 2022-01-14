@@ -5,12 +5,15 @@ import static org.lwjgl.system.MemoryStack.stackGet;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.LongBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Frame {
 
     private final long imageAvailableSemaphore;
     private final long renderFinishedSemaphore;
     private final long fence;
+    protected final List<FrameListener> listeners = new ArrayList<>();
 
     public Frame(long imageAvailableSemaphore, long renderFinishedSemaphore, long fence) {
         this.imageAvailableSemaphore = imageAvailableSemaphore;
@@ -52,5 +55,23 @@ public class Frame {
 
     public LongBuffer pFence(MemoryStack stack) {
         return stack.longs(fence);
+    }
+
+    public void onFinish() {
+        for (int i = 0; i < listeners.size(); i++) {
+            listeners.get(i).onFinish();
+        }
+    }
+
+    public void resetListeners() {
+        listeners.clear();
+    }
+
+    public void addFrameListener(FrameListener listener) {
+        listeners.add(listener);
+    }
+
+    public interface FrameListener {
+        void onFinish();
     }
 }

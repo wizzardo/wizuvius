@@ -1,10 +1,12 @@
 package com.wizzardo.vulkan;
 
-import static org.lwjgl.vulkan.VK10.vkDestroyPipeline;
-import static org.lwjgl.vulkan.VK10.vkDestroyPipelineLayout;
-import static org.lwjgl.vulkan.VK10.vkDestroySampler;
-
+import com.wizzardo.tools.io.IOTools;
+import com.wizzardo.tools.misc.Unchecked;
 import org.lwjgl.vulkan.VkDevice;
+
+import java.nio.ByteBuffer;
+
+import static org.lwjgl.vulkan.VK10.*;
 
 public class Material {
     String vertexShader;
@@ -12,6 +14,7 @@ public class Material {
     TextureImage textureImage;
     long textureSampler;
 
+    public long descriptorSetLayout;
     public long graphicsPipeline;
     public long pipelineLayout;
 
@@ -74,7 +77,46 @@ public class Material {
     }
 
     public void cleanup(VkDevice device) {
-        vkDestroySampler(device, textureSampler, null);
-        textureImage.cleanup(device);
+        try {
+            vkDestroySampler(device, textureSampler, null);
+            vkDestroyDescriptorSetLayout(device, descriptorSetLayout, null);
+            textureImage.cleanup(device);
+        } finally {
+            descriptorSetLayout = 0;
+            textureSampler = 0;
+        }
+    }
+
+    protected void prepare(VulkanApplication application, Viewport viewport) {
+        if (descriptorSetLayout == 0L)
+            descriptorSetLayout = VulkanDescriptorSets.createDescriptorSetLayout(application.getDevice());
+
+        if (pipelineLayout == 0L) {
+            ByteBuffer vertShaderSPIRV = Unchecked.call(() -> {
+                byte[] bytes = IOTools.bytes(application.loadAsset(vertexShader));
+                ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
+                buffer.put(bytes);
+                buffer.flip();
+                return buffer;
+            });
+            ByteBuffer fragShaderSPIRV = Unchecked.call(() -> {
+                byte[] bytes = IOTools.bytes(application.loadAsset(fragmentShader));
+                ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
+                buffer.put(bytes);
+                buffer.flip();
+                return buffer;
+            });
+            CreateGraphicsPipelineResult pipeline = VulkanApplication.createGraphicsPipeline(
+                    application.getDevice(),
+                    vertShaderSPIRV,
+                    fragShaderSPIRV,
+                    viewport.getExtent(),
+                    viewport.getRenderPass(),
+                    descriptorSetLayout
+            );
+            pipelineLayout = pipeline.pipelineLayout;
+            graphicsPipeline = pipeline.graphicsPipeline;
+        }
+
     }
 }

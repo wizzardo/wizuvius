@@ -85,7 +85,7 @@ public class Utils {
     static BufferHolder createVertexBuffer(
             VkPhysicalDevice physicalDevice,
             VkDevice device,
-            VkQueue graphicsQueue,
+            VkQueue queue,
             long commandPool,
             Vertex[] vertices
     ) {
@@ -124,7 +124,7 @@ public class Utils {
             long vertexBuffer = pBuffer.get(0);
             long vertexBufferMemory = pBufferMemory.get(0);
 
-            VulkanBuffers.copyBuffer(device, graphicsQueue, commandPool, stagingBuffer, vertexBuffer, bufferSize);
+            VulkanBuffers.copyBuffer(device, queue, commandPool, stagingBuffer, vertexBuffer, bufferSize);
 
             vkDestroyBuffer(device, stagingBuffer, null);
             vkFreeMemory(device, stagingBufferMemory, null);
@@ -135,7 +135,7 @@ public class Utils {
     static BufferHolder createIndexBuffer(
             VkPhysicalDevice physicalDevice,
             VkDevice device,
-            VkQueue graphicsQueue,
+            VkQueue queue,
             long commandPool,
             int[] indices
     ) {
@@ -174,7 +174,7 @@ public class Utils {
             long indexBuffer = pBuffer.get(0);
             long indexBufferMemory = pBufferMemory.get(0);
 
-            VulkanBuffers.copyBuffer(device, graphicsQueue, commandPool, stagingBuffer, indexBuffer, bufferSize);
+            VulkanBuffers.copyBuffer(device, queue, commandPool, stagingBuffer, indexBuffer, bufferSize);
 
             vkDestroyBuffer(device, stagingBuffer, null);
             vkFreeMemory(device, stagingBufferMemory, null);

@@ -4,44 +4,7 @@ import static org.lwjgl.stb.STBImage.STBI_rgb_alpha;
 import static org.lwjgl.stb.STBImage.stbi_image_free;
 import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.VK10.VK_ACCESS_SHADER_READ_BIT;
-import static org.lwjgl.vulkan.VK10.VK_ACCESS_TRANSFER_READ_BIT;
-import static org.lwjgl.vulkan.VK10.VK_ACCESS_TRANSFER_WRITE_BIT;
-import static org.lwjgl.vulkan.VK10.VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-import static org.lwjgl.vulkan.VK10.VK_COMPARE_OP_ALWAYS;
-import static org.lwjgl.vulkan.VK10.VK_FILTER_LINEAR;
-import static org.lwjgl.vulkan.VK10.VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
-import static org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_SRGB;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_ASPECT_COLOR_BIT;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_UNDEFINED;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_TILING_OPTIMAL;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_SAMPLED_BIT;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-import static org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-import static org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-import static org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-import static org.lwjgl.vulkan.VK10.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-import static org.lwjgl.vulkan.VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
-import static org.lwjgl.vulkan.VK10.VK_QUEUE_FAMILY_IGNORED;
-import static org.lwjgl.vulkan.VK10.VK_SAMPLER_ADDRESS_MODE_REPEAT;
-import static org.lwjgl.vulkan.VK10.VK_SAMPLER_MIPMAP_MODE_LINEAR;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
-import static org.lwjgl.vulkan.VK10.vkCmdBlitImage;
-import static org.lwjgl.vulkan.VK10.vkCmdCopyBufferToImage;
-import static org.lwjgl.vulkan.VK10.vkCmdPipelineBarrier;
-import static org.lwjgl.vulkan.VK10.vkCreateSampler;
-import static org.lwjgl.vulkan.VK10.vkDestroyBuffer;
-import static org.lwjgl.vulkan.VK10.vkFreeMemory;
-import static org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceFormatProperties;
-import static org.lwjgl.vulkan.VK10.vkMapMemory;
-import static org.lwjgl.vulkan.VK10.vkUnmapMemory;
+import static org.lwjgl.vulkan.VK10.*;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -71,14 +34,37 @@ public class TextureLoader {
 
             ByteBuffer pixels = stbi_load_from_memory(dataLoader.get(), pWidth, pHeight, pChannels, STBI_rgb_alpha);
 
-            long imageSize = pWidth.get(0) * pHeight.get(0) * STBI_rgb_alpha;
-
-            int mipLevels = (int) Math.floor(log2(Math.max(pWidth.get(0), pHeight.get(0)))) + 1;
-
             if (pixels == null) {
                 throw new RuntimeException("Failed to load texture image");
             }
 
+            int width = pWidth.get(0);
+            int height = pHeight.get(0);
+            long imageSize = (long) width * height * STBI_rgb_alpha;
+
+            int mipLevels = (int) Math.floor(log2(Math.max(width, height))) + 1;
+
+            try {
+                return createTextureImage(physicalDevice, device, graphicsQueue, commandPool, pixels, width, height, imageSize, VK_FORMAT_R8G8B8A8_SRGB, mipLevels);
+            } finally {
+                stbi_image_free(pixels);
+            }
+        }
+    }
+
+    public static TextureImage createTextureImage(
+            VkPhysicalDevice physicalDevice,
+            VkDevice device,
+            VkQueue queue,
+            long commandPool,
+            ByteBuffer pixels,
+            int width,
+            int height,
+            long imageSize,
+            int format,
+            int mipLevels
+    ) {
+        try (MemoryStack stack = stackPush()) {
             LongBuffer pStagingBuffer = stack.mallocLong(1);
             LongBuffer pStagingBufferMemory = stack.mallocLong(1);
             VulkanBuffers.createBuffer(
@@ -96,13 +82,13 @@ public class TextureLoader {
             memcpy(data.getByteBuffer(0, (int) imageSize), pixels, imageSize);
             vkUnmapMemory(device, pStagingBufferMemory.get(0));
 
-            stbi_image_free(pixels);
 
             LongBuffer pTextureImage = stack.mallocLong(1);
             LongBuffer pTextureImageMemory = stack.mallocLong(1);
-            VulkanImages.createImage(physicalDevice, device, pWidth.get(0), pHeight.get(0),
+            VulkanImages.createImage(physicalDevice, device, width, height,
                     mipLevels,
-                    VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+                    format,
+                    VK_IMAGE_TILING_OPTIMAL,
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                     pTextureImage,
@@ -113,24 +99,70 @@ public class TextureLoader {
 
             VulkanImages.transitionImageLayout(
                     device,
-                    graphicsQueue,
+                    queue,
                     commandPool,
                     textureImage,
-                    VK_FORMAT_R8G8B8A8_SRGB,
+                    format,
                     VK_IMAGE_LAYOUT_UNDEFINED,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     mipLevels
             );
 
-            copyBufferToImage(device, graphicsQueue, commandPool, pStagingBuffer.get(0), textureImage, pWidth.get(0), pHeight.get(0));
+            copyBufferToImage(device, queue, commandPool, pStagingBuffer.get(0), textureImage, width, height);
 
             // Transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
-            generateMipmaps(physicalDevice, device, graphicsQueue, commandPool, textureImage, VK_FORMAT_R8G8B8A8_SRGB, pWidth.get(0), pHeight.get(0), mipLevels);
+            generateMipmaps(physicalDevice, device, queue, commandPool, textureImage, format, width, height, mipLevels);
 
             vkDestroyBuffer(device, pStagingBuffer.get(0), null);
             vkFreeMemory(device, pStagingBufferMemory.get(0), null);
 
-            long textureImageView = TextureLoader.createTextureImageView(device, textureImage, mipLevels);
+            long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+
+            return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView);
+        }
+    }
+
+    public static TextureImage createTextureImage(
+            VkPhysicalDevice physicalDevice,
+            VkDevice device,
+            VkQueue queue,
+            long commandPool,
+            int width,
+            int height,
+            int format,
+            int mipLevels
+    ) {
+        try (MemoryStack stack = stackPush()) {
+            LongBuffer pTextureImage = stack.mallocLong(1);
+            LongBuffer pTextureImageMemory = stack.mallocLong(1);
+            VulkanImages.createImage(physicalDevice, device, width, height,
+                    mipLevels,
+                    format,
+                    VK_IMAGE_TILING_OPTIMAL,
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                    pTextureImage,
+                    pTextureImageMemory);
+
+            long textureImage = pTextureImage.get(0);
+            long textureImageMemory = pTextureImageMemory.get(0);
+
+            VulkanImages.transitionImageLayout(
+                    device,
+                    queue,
+                    commandPool,
+                    textureImage,
+                    format,
+                    VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    mipLevels
+            );
+
+            // Transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
+            generateMipmaps(physicalDevice, device, queue, commandPool, textureImage, format, width, height, mipLevels);
+
+            long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+
             return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView);
         }
     }
@@ -230,17 +262,13 @@ public class TextureLoader {
         }
     }
 
-    static long createTextureImageView(VkDevice device, long textureImage, int mipLevels) {
-        return VulkanImages.createImageView(device, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
-    }
-
     static void memcpy(ByteBuffer dst, ByteBuffer src, long size) {
         src.limit((int) size);
         dst.put(src);
         src.limit(src.capacity()).rewind();
     }
 
-    static void copyBufferToImage(VkDevice device, VkQueue graphicsQueue, long commandPool, long buffer, long image, int width, int height) {
+    public static void copyBufferToImage(VkDevice device, VkQueue queue, long commandPool, long buffer, long image, int width, int height) {
         try (MemoryStack stack = stackPush()) {
             VkCommandBuffer commandBuffer = VulkanCommands.beginSingleTimeCommands(device, commandPool);
 
@@ -257,7 +285,7 @@ public class TextureLoader {
 
             vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, region);
 
-            VulkanCommands.endSingleTimeCommands(device, graphicsQueue, commandPool, commandBuffer);
+            VulkanCommands.endSingleTimeCommands(device, queue, commandPool, commandBuffer);
         }
     }
 

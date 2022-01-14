@@ -15,7 +15,7 @@ import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-class UniformBuffers {
+public class UniformBuffers {
     public final List<Long> uniformBuffers;
     public final List<Long> uniformBuffersMemory;
 
@@ -24,7 +24,7 @@ class UniformBuffers {
         this.uniformBuffersMemory = uniformBuffersMemory;
     }
 
-    static UniformBuffers createUniformBuffers(VkPhysicalDevice physicalDevice, VkDevice device, List<Long> swapChainImages) {
+    public static UniformBuffers createUniformBuffers(VkPhysicalDevice physicalDevice, VkDevice device, List<Long> swapChainImages) {
         try (MemoryStack stack = stackPush()) {
             List<Long> uniformBuffers = new ArrayList<>(swapChainImages.size());
             List<Long> uniformBuffersMemory = new ArrayList<>(swapChainImages.size());

@@ -90,7 +90,7 @@ public class VulkanDescriptorSets {
         }
     }
 
-    static List<Long> createDescriptorSets(
+    public static List<Long> createDescriptorSets(
             VkDevice device,
             List<Long> swapChainImages,
             long descriptorSetLayout,
@@ -114,7 +114,7 @@ public class VulkanDescriptorSets {
 
             int result = vkAllocateDescriptorSets(device, allocInfo, pDescriptorSets);
             if (result != VK_SUCCESS) {
-                throw new RuntimeException("Failed to allocate descriptor sets: "+result);
+                throw new RuntimeException("Failed to allocate descriptor sets: " + result);
             }
 
             List<Long> descriptorSets = new ArrayList<>(pDescriptorSets.capacity());
@@ -123,12 +123,12 @@ public class VulkanDescriptorSets {
             bufferInfo.offset(0);
             bufferInfo.range(UniformBufferObject.SIZEOF);
 
-            VkDescriptorImageInfo.Buffer imageInfo = VkDescriptorImageInfo.calloc(1, stack);
-            imageInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-            imageInfo.imageView(textureImageView);
-            imageInfo.sampler(textureSampler);
+            int capacity = 1;
+            boolean withTexture = textureImageView != 0;
+            if (withTexture)
+                capacity++;
 
-            VkWriteDescriptorSet.Buffer descriptorWrites = VkWriteDescriptorSet.calloc(2, stack);
+            VkWriteDescriptorSet.Buffer descriptorWrites = VkWriteDescriptorSet.calloc(capacity, stack);
 
             VkWriteDescriptorSet uboDescriptorWrite = descriptorWrites.get(0);
             uboDescriptorWrite.sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
@@ -138,19 +138,30 @@ public class VulkanDescriptorSets {
             uboDescriptorWrite.descriptorCount(1);
             uboDescriptorWrite.pBufferInfo(bufferInfo);
 
-            VkWriteDescriptorSet samplerDescriptorWrite = descriptorWrites.get(1);
-            samplerDescriptorWrite.sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
-            samplerDescriptorWrite.dstBinding(1);
-            samplerDescriptorWrite.dstArrayElement(0);
-            samplerDescriptorWrite.descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            samplerDescriptorWrite.descriptorCount(1);
-            samplerDescriptorWrite.pImageInfo(imageInfo);
+            VkWriteDescriptorSet samplerDescriptorWrite = null;
+
+            if (withTexture) {
+                VkDescriptorImageInfo.Buffer imageInfo = VkDescriptorImageInfo.calloc(1, stack);
+                imageInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                imageInfo.imageView(textureImageView);
+                imageInfo.sampler(textureSampler);
+
+                samplerDescriptorWrite = descriptorWrites.get(1);
+                samplerDescriptorWrite.sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
+                samplerDescriptorWrite.dstBinding(1);
+                samplerDescriptorWrite.dstArrayElement(0);
+                samplerDescriptorWrite.descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+                samplerDescriptorWrite.descriptorCount(1);
+                samplerDescriptorWrite.pImageInfo(imageInfo);
+            }
 
             for (int i = 0; i < pDescriptorSets.capacity(); i++) {
                 long descriptorSet = pDescriptorSets.get(i);
                 bufferInfo.buffer(uniformBuffers.get(i));
                 uboDescriptorWrite.dstSet(descriptorSet);
-                samplerDescriptorWrite.dstSet(descriptorSet);
+
+                if (withTexture)
+                    samplerDescriptorWrite.dstSet(descriptorSet);
 
                 vkUpdateDescriptorSets(device, descriptorWrites, null);
                 descriptorSets.add(descriptorSet);
