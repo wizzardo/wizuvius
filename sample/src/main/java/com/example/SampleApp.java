@@ -4,6 +4,13 @@ import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.*;
 import com.wizzardo.vulkan.scene.Geometry;
+import com.wizzardo.vulkan.ui.javafx.JavaFxQuad;
+import com.wizzardo.vulkan.ui.javafx.JavaFxToTextureBridge;
+import javafx.application.Platform;
+import javafx.scene.Group;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.paint.Color;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
@@ -15,11 +22,17 @@ import static org.lwjgl.assimp.Assimp.aiProcess_JoinIdenticalVertices;
 
 public class SampleApp extends DesktopVulkanApplication {
 
+    public SampleApp() {
+        width = 1280;
+        height = 720;
+    }
+
     public static void main(String[] args) {
         new SampleApp().start();
     }
 
     Material material;
+    JavaFxQuad javaFxUI;
 
     @Override
     protected void initApp() {
@@ -44,36 +57,69 @@ public class SampleApp extends DesktopVulkanApplication {
         getMainViewport().getCamera().lookAt(Vectors.ZERO, Vectors.UNIT_Z);
 
         {
-            Material material = new Material();
-            material.setVertexShader("shaders/tri.vert.spv");
-            material.setFragmentShader("shaders/tri.frag.spv");
-            material.setTextureImage(textureImage);
-            material.setTextureSampler(createTextureSampler(textureImage.mipLevels));
 
-            Vertex[] vertices = {
-                    new Vertex(new Vector3f(-0.5f, -0.5f, 0f), new Vector3f(1.0f, 0.0f, 0.0f), new Vector2f(1.0f, 0.0f)),
-                    new Vertex(new Vector3f(0.5f, -0.5f, 0f), new Vector3f(0.0f, 1.0f, 0.0f), new Vector2f(0.0f, 0.0f)),
-                    new Vertex(new Vector3f(0.5f, 0.5f, 0f), new Vector3f(0.0f, 0.0f, 0.0f), new Vector2f(0.0f, 1.0f)),
-                    new Vertex(new Vector3f(-0.5f, 0.5f, 0f), new Vector3f(1.0f, 1.0f, 0.0f), new Vector2f(1.0f, 1.0f))
-            };
+            JavaFxToTextureBridge bridge = new JavaFxToTextureBridge(this, 400, 200);
 
-            int[] indices = {
-                    0, 1, 2,
-                    2, 3, 0
-            };
+            Button button = new Button("BUTTON");
+            Group rootNode = new Group(button);
+            Scene scene = new Scene(rootNode, 400, 200);
+            scene.setFill(Color.TRANSPARENT);
+//            scene.setFill(Color.GREEN);
 
-            Geometry geometry = new Geometry(new Mesh(vertices, indices), material);
-            geometry.getLocalTransform().setScale(1f);
-            geometry.getLocalTransform().setTranslation(-0.5f, -0.5f, -0.5f);
+            bridge.setScene(scene);
+
+
+            javaFxUI = new JavaFxQuad(bridge);
+            addGeometry(javaFxUI, getGuiViewport());
+
+            Thread thread = new Thread(() -> {
+                int i =0;
+                while(true){
+                    Unchecked.ignore(() -> Thread.sleep(1000));
+                    i++;
+                    int finalI = i;
+                    Platform.runLater(() -> button.setText("BUTTON " + String.format("%03d", finalI)));
+//                    return;
+                }
+            });
+            thread.setDaemon(true);
+            thread.start();
+
+//            Material material = new Material();
+//            material.setVertexShader("shaders/tri.vert.spv");
+//            material.setFragmentShader("shaders/tri.frag.spv");
+//            material.setTextureImage(textureImage);
+//            material.setTextureSampler(createTextureSampler(textureImage.mipLevels));
+//
+//            Vertex[] vertices = {
+////                    new Vertex(new Vector3f(-0.5f, -0.5f, 0f), new Vector3f(0.5f, 0.0f, 0.0f), new Vector2f(1.0f, 0.0f)),
+////                    new Vertex(new Vector3f(0.5f, -0.5f, 0f), new Vector3f(0.0f, 0.5f, 0.0f), new Vector2f(0.0f, 0.0f)),
+////                    new Vertex(new Vector3f(0.5f, 0.5f, 0f), new Vector3f(0.0f, 0.0f, 0.0f), new Vector2f(0.0f, 1.0f)),
+////                    new Vertex(new Vector3f(-0.5f, 0.5f, 0f), new Vector3f(0.5f, 0.5f, 0.0f), new Vector2f(1.0f, 1.0f))
+//                    new Vertex(new Vector3f(0, 0, 0f), new Vector3f(1, 0.0f, 0.0f), new Vector2f(1.0f, 0.0f)),
+//                    new Vertex(new Vector3f(1, 0, 0f), new Vector3f(0.0f, 1, 0.0f), new Vector2f(0.0f, 0.0f)),
+//                    new Vertex(new Vector3f(1, 1, 0f), new Vector3f(0.0f, 0.0f, 0.0f), new Vector2f(0.0f, 1.0f)),
+//                    new Vertex(new Vector3f(0, 1, 0f), new Vector3f(1, 1, 0.0f), new Vector2f(1.0f, 1.0f))
+//            };
+//
+//            int[] indices = {
+//                    2, 1, 0,
+//                    0, 3, 2
+//            };
+//
+//            Geometry geometry = new Geometry(new Mesh(vertices, indices), material);
+//            geometry.getLocalTransform().setScale(100f);
+//            geometry.getLocalTransform().setTranslation(-100, -100, 0);
 //            addGeometry(geometry, getGuiViewport());
         }
     }
 
     @Override
     protected void simpleUpdate(double tpf) {
-        for (PreparedGeometry preparedGeometry : getMainViewport().getPreparedGeometries()) {
-            preparedGeometry.geometry.getLocalTransform().getRotation().setAngleAxis(this.getTime() * Math.toRadians(90), 0.0f, 0.0f, 1.0f);
+        for (Geometry geometry : getMainViewport().getGeometries()) {
+            geometry.getLocalTransform().getRotation().setAngleAxis(this.getTime() * Math.toRadians(90) / 10f, 0.0f, 0.0f, 1.0f);
         }
+        javaFxUI.update();
     }
 
     @Override
@@ -86,6 +132,7 @@ public class SampleApp extends DesktopVulkanApplication {
     protected void cleanup() {
         material.cleanup(getDevice());
         super.cleanup();
+        JavaFxToTextureBridge.cleanup();
     }
 
     private Mesh loadMesh() {

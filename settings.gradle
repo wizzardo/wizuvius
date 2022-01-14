@@ -1,5 +1,6 @@
 include ':app',
         ':engine',
         ':engine-desktop',
+        ':ui-javafx',
         ':sample'
 

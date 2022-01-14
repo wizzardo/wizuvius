@@ -1,0 +1,53 @@
+apply plugin: "java-library"
+
+sourceCompatibility = 11
+targetCompatibility = 11
+
+dependencies {
+    api(project(":engine"))
+
+    def natives = 'natives-linux'
+    api "org.lwjgl:lwjgl:3.3.0:${natives}"
+    api "org.lwjgl:lwjgl-glfw:3.3.0"
+    api "org.lwjgl:lwjgl-glfw:3.3.0:${natives}"
+    api "org.lwjgl:lwjgl-stb:3.3.0:${natives}"
+    api "org.lwjgl:lwjgl-assimp:3.3.0:${natives}"
+    api "org.lwjgl:lwjgl-shaderc:3.3.0"
+    api "org.lwjgl:lwjgl-shaderc:3.3.0:${natives}"
+
+
+    def javaFx = "18-ea+9:linux"
+//    def javaFx = "16:linux"
+//    def javaFx = "17-ea+2:linux"
+//    def javaFx = "11.0.2:linux"
+    api "org.openjfx:javafx-base:$javaFx"
+    api "org.openjfx:javafx-web:$javaFx"
+    api "org.openjfx:javafx-graphics:$javaFx"
+    api "org.openjfx:javafx-controls:$javaFx"
+    api "org.openjfx:javafx-media:$javaFx"
+}
+
+compileJava {
+    options.encoding = "UTF-8"
+    options.incremental = true
+    options.compilerArgs.addAll([
+            "--add-exports",
+            "javafx.graphics/com.sun.javafx.embed=ALL-UNNAMED"
+    ])
+    options.compilerArgs.addAll([
+            "--add-exports",
+            "javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED"
+    ])
+    options.compilerArgs.addAll([
+            "--add-exports",
+            "javafx.graphics/com.sun.javafx.cursor=ALL-UNNAMED"
+    ])
+    options.compilerArgs.addAll([
+            "--add-exports",
+            "javafx.graphics/com.sun.glass.ui=ALL-UNNAMED"
+    ])
+    options.compilerArgs.addAll([
+            "--add-exports",
+            "javafx.graphics/com.sun.javafx.application=ALL-UNNAMED"
+    ])
+}
