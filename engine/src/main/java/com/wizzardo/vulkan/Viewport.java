@@ -85,6 +85,8 @@ public class Viewport {
 
     public void setExtent(VkExtent2D extent) {
         this.extent = extent;
+        camera.screenWidth = extent.width();
+        camera.screenHeight = extent.height();
     }
 
     public VkOffset2D getOffset() {

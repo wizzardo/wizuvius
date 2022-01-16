@@ -1,10 +1,9 @@
 package com.wizzardo.vulkan;
 
-import org.joml.Matrix4f;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
-import org.joml.Vector3fc;
+import org.joml.*;
 import org.lwjgl.vulkan.VkExtent2D;
+
+import java.lang.Math;
 
 public class Camera {
 
@@ -12,6 +11,9 @@ public class Camera {
     protected Quaternionf rotation = new Quaternionf();
     protected Matrix4f view = new Matrix4f();
     protected Matrix4f projection = new Matrix4f();
+    protected Viewport viewport;
+    protected int screenWidth;
+    protected int screenHeight;
 
     public void setProjection(float fieldOfViewDegrees, float aspectRation, float nearPlane, float farPlane) {
         projection.setPerspective((float) Math.toRadians(fieldOfViewDegrees), aspectRation, nearPlane, farPlane);
@@ -286,5 +288,35 @@ public class Camera {
         }
 
         return source;
+    }
+
+    public Vector3f getWorldCoordinates(Vector2f screenPos, float projectionZPos) {
+        return getWorldCoordinates(screenPos.x, screenPos.y, projectionZPos, null);
+    }
+
+    public Vector3f getWorldCoordinates(float x, float y, float projectionZPos, Vector3f store) {
+        if (store == null) {
+            store = new Vector3f();
+        }
+
+        Matrix4f inverseMat = new Matrix4f();
+        inverseMat.set(projection)
+                .mul(view)
+                .invert();
+
+        float viewPortLeft = 0;
+        float viewPortRight = 1;
+        float viewPortBottom = 0;
+        float viewPortTop = 1;
+
+        store.set(
+                (x / screenWidth - viewPortLeft) / (viewPortRight - viewPortLeft) * 2 - 1,
+                (y / screenHeight - viewPortBottom) / (viewPortTop - viewPortBottom) * 2 - 1,
+                projectionZPos * 2 - 1);
+
+        float w = multProj(inverseMat, store, store);
+        store.mul(1f / w);
+
+        return store;
     }
 }
