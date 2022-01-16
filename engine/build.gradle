@@ -9,4 +9,7 @@ dependencies {
     api 'org.lwjgl:lwjgl-vulkan:3.3.0'
     api 'org.lwjgl:lwjgl-assimp:3.3.0'
     api 'org.lwjgl:lwjgl-stb:3.3.0'
+
+    testImplementation "org.assertj:assertj-core:3.18.1"
+    testImplementation 'junit:junit:4.13.1'
 }

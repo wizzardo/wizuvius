@@ -71,7 +71,7 @@ class JavaFxHostInterface implements HostInterface {
 
     @Override
     public void repaint() {
-        System.out.println("repaint");
+//        System.out.println("repaint");
         bridge.repaint();
     }
 
