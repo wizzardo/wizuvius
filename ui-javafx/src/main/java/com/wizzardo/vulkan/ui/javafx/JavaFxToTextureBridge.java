@@ -2,16 +2,19 @@ package com.wizzardo.vulkan.ui.javafx;
 
 import com.sun.glass.ui.Pixels;
 import com.sun.javafx.application.PlatformImpl;
+import com.sun.javafx.embed.AbstractEvents;
 import com.sun.javafx.embed.EmbeddedStageInterface;
 import com.sun.javafx.embed.EmbeddedSceneInterface;
 import com.sun.javafx.stage.EmbeddedWindow;
 import com.wizzardo.vulkan.*;
+import com.wizzardo.vulkan.input.KeyState;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDevice;
 
+import java.awt.event.KeyEvent;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
@@ -25,6 +28,8 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class JavaFxToTextureBridge {
+    protected static final char[] EMPTY_CHARS = new char[0];
+    protected volatile int pixelsNativeFormat;
     protected BufferHolder stagingBuffer;
     protected Material material;
     protected volatile EmbeddedWindow embeddedWindow;
@@ -73,6 +78,20 @@ public class JavaFxToTextureBridge {
         }
     }
 
+    public boolean isMouseOver(int x, int y) {
+        if (pixelsNativeFormat == Pixels.Format.BYTE_BGRA_PRE) {
+            tempData.clear();
+            byte alpha = tempData.get((y * textureWidth + x) * 4 + 3);
+            return alpha != 0;
+        }
+        if (pixelsNativeFormat == Pixels.Format.BYTE_ARGB) {
+            tempData.clear();
+            byte alpha = tempData.get((y * textureWidth + x) * 4);
+            return alpha != 0;
+        }
+        return false;
+    }
+
     public static class TextureHolder {
         final TextureImage textureImage;
         final AtomicInteger counter = new AtomicInteger();
@@ -97,17 +116,18 @@ public class JavaFxToTextureBridge {
     protected JavaFxToTextureBridge(VulkanApplication application) {
         this.application = application;
         PlatformImpl.startup(() -> {
-            switch (Pixels.getNativeFormat()) {
+            pixelsNativeFormat = Pixels.getNativeFormat();
+            switch (pixelsNativeFormat) {
                 case Pixels.Format.BYTE_ARGB:
                     //imageFormat = VK_FORMAT_A
                     //todo do reordering in fragment shader
-                    throw new IllegalArgumentException("Not supported javaFX pixel format " + Pixels.getNativeFormat());
+                    throw new IllegalArgumentException("Not supported javaFX pixel format " + pixelsNativeFormat);
 //                    break;
                 case Pixels.Format.BYTE_BGRA_PRE:
                     imageFormat = VK_FORMAT_B8G8R8A8_SRGB;
                     break;
                 default:
-                    throw new IllegalArgumentException("Not supported javaFX pixel format " + Pixels.getNativeFormat());
+                    throw new IllegalArgumentException("Not supported javaFX pixel format " + pixelsNativeFormat);
             }
         });
     }
@@ -261,6 +281,9 @@ public class JavaFxToTextureBridge {
         tempData.limit(sceneWidth * sceneHeight * 4);
 
         TextureHolder holder = getFreeTexture();
+        if (holder == null) {
+            holder = createTextureHolder();
+        }
         copy(tempData, holder);
         setCurrentImage(holder);
     }
@@ -303,5 +326,89 @@ public class JavaFxToTextureBridge {
                 textureWidth,
                 textureHeight
         );
+    }
+
+    public void onMouseMove(int x, int y, int screenX, int screenY) {
+        onMouseMotionEvent(
+                x,
+                y,
+                screenX,
+                screenY,
+                AbstractEvents.MOUSEEVENT_MOVED,
+                AbstractEvents.MOUSEEVENT_NONE_BUTTON,
+                false,
+                false,
+                false
+        );
+    }
+
+    public void onMouseMotionEvent(int x, int y, int screenX, int screenY, int type, int button, boolean primaryBtnDown, boolean middleBtnDown, boolean secondaryBtnDown) {
+        KeyState keyState = application.getInputsManager().getKeyState();
+
+        boolean shift = keyState.isShiftPressed();
+        boolean ctrl = keyState.isCtrlPressed();
+        boolean alt = keyState.isAltPressed();
+        boolean meta = keyState.isMetaPressed();
+
+        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, false, false, x, y,
+                screenX, screenY, shift, ctrl, alt, meta, false);
+    }
+
+    public void onMouseButtonEvent(int x, int y, int screenX, int screenY, int type, int button) {
+        KeyState keyState = application.getInputsManager().getKeyState();
+
+        boolean primaryBtnDown = keyState.isMouseButtonPressed(0);
+        boolean secondaryBtnDown = keyState.isMouseButtonPressed(1);
+        boolean middleBtnDown = keyState.isMouseButtonPressed(2);
+
+        boolean shift = keyState.isShiftPressed();
+        boolean ctrl = keyState.isCtrlPressed();
+        boolean alt = keyState.isAltPressed();
+        boolean meta = keyState.isMetaPressed();
+        boolean popupTrigger = button == AbstractEvents.MOUSEEVENT_SECONDARY_BUTTON;
+
+        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, false, false, x, y,
+                screenX, screenY, shift, ctrl, alt, meta, popupTrigger);
+    }
+
+    public void onMouseScrollEvent(int x, int y, int screenX, int screenY, double scrollX, double scrollY, int type) {
+        KeyState keyState = application.getInputsManager().getKeyState();
+
+        boolean shift = keyState.isShiftPressed();
+        boolean ctrl = keyState.isCtrlPressed();
+        boolean alt = keyState.isAltPressed();
+        boolean meta = keyState.isMetaPressed();
+
+        getEmbeddedScene().scrollEvent(type, scrollX, scrollY, scrollX, scrollY, 10, 10, x, y,
+                screenX, screenY, shift, ctrl, alt, meta, false);
+    }
+
+    public void onKeyTyped(int keycode, char[] chars) {
+        getEmbeddedScene().keyEvent(AbstractEvents.KEYEVENT_TYPED, keycode, chars, getKeyModifiers());
+    }
+
+    public void onKey(int key, boolean pressed, boolean repeat) {
+        int keyCode = application.getInputsManager().getKeyState().nativeToAwt(key);
+        if (repeat) {
+            getEmbeddedScene().keyEvent(AbstractEvents.KEYEVENT_RELEASED, keyCode, EMPTY_CHARS, getKeyModifiers());
+            getEmbeddedScene().keyEvent(AbstractEvents.KEYEVENT_PRESSED, keyCode, EMPTY_CHARS, getKeyModifiers());
+        } else if (pressed)
+            getEmbeddedScene().keyEvent(AbstractEvents.KEYEVENT_PRESSED, keyCode, EMPTY_CHARS, getKeyModifiers());
+        else
+            getEmbeddedScene().keyEvent(AbstractEvents.KEYEVENT_RELEASED, keyCode, EMPTY_CHARS, getKeyModifiers());
+    }
+
+    private int getKeyModifiers() {
+        int embedModifiers = 0;
+        KeyState keyState = application.getInputsManager().getKeyState();
+        if (keyState.isShiftPressed())
+            embedModifiers |= AbstractEvents.MODIFIER_SHIFT;
+        if (keyState.isCtrlPressed())
+            embedModifiers |= AbstractEvents.MODIFIER_CONTROL;
+        if (keyState.isAltPressed())
+            embedModifiers |= AbstractEvents.MODIFIER_ALT;
+        if (keyState.isMetaPressed())
+            embedModifiers |= AbstractEvents.MODIFIER_META;
+        return embedModifiers;
     }
 }
