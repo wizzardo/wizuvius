@@ -18,6 +18,7 @@ import static org.lwjgl.vulkan.VK10.*;
 
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
+import com.wizzardo.vulkan.input.InputsManager;
 import com.wizzardo.vulkan.scene.Geometry;
 
 import org.joml.Matrix4f;
@@ -65,7 +66,7 @@ public abstract class VulkanApplication extends Thread {
 
     private static final long UINT64_MAX = 0xFFFFFFFFFFFFFFFFL;
     static final Set<String> VALIDATION_LAYERS;
-    public static final boolean ENABLE_VALIDATION_LAYERS = DEBUG.get(true);
+    public static final boolean ENABLE_VALIDATION_LAYERS = DEBUG.get(false);
     public static final int MAX_FRAMES_IN_FLIGHT = 2;
     public static final String applicationName = "Hello Triangle";
     public static final String engineName = "No Engine";
@@ -83,41 +84,42 @@ public abstract class VulkanApplication extends Thread {
         }
     }
 
-    private volatile boolean running = true;
+    protected volatile boolean running = true;
 
-    private VkInstance instance;
-    private long debugMessenger;
-    private long surface;
+    protected VkInstance instance;
+    protected long debugMessenger;
+    protected long surface;
 
-    private VkPhysicalDevice physicalDevice;
-    private VkDevice device;
+    protected VkPhysicalDevice physicalDevice;
+    protected VkDevice device;
 
-    private VkQueue graphicsQueue;
-    private VkQueue transferQueue;
-    private VkQueue presentQueue;
+    protected VkQueue graphicsQueue;
+    protected VkQueue transferQueue;
+    protected VkQueue presentQueue;
 
-    private long swapChain;
-    private List<Long> swapChainImages;
-    private List<Long> swapChainImageViews;
-    private Viewport mainViewport;
-    private Viewport guiViewport;
+    protected long swapChain;
+    protected List<Long> swapChainImages;
+    protected List<Long> swapChainImageViews;
+    protected Viewport mainViewport;
+    protected Viewport guiViewport;
+    protected InputsManager inputsManager;
 
-    private long descriptorPool;
-    private long commandPool;
-    private DepthResources depthResources;
+    protected long descriptorPool;
+    protected long commandPool;
+    protected DepthResources depthResources;
 
-    private SyncObjects syncObjects;
+    protected SyncObjects syncObjects;
 
-    private int currentFrame;
+    protected int currentFrame;
     protected volatile int width;
     protected volatile int height;
-    private boolean framebufferResize;
-    private Queue<Runnable> tasks = new ConcurrentLinkedQueue<>();
+    protected boolean framebufferResize;
+    protected Queue<Runnable> tasks = new ConcurrentLinkedQueue<>();
 
 
-    private long previousPrintFps = System.nanoTime();
-    private long previousFrame = System.nanoTime();
-    private int fpsCounter = 0;
+    protected long previousPrintFps = System.nanoTime();
+    protected long previousFrame = System.nanoTime();
+    protected int fpsCounter = 0;
 
 
     private static void destroyDebugUtilsMessengerEXT(VkInstance instance, long debugMessenger, VkAllocationCallbacks allocationCallbacks) {
@@ -154,6 +156,8 @@ public abstract class VulkanApplication extends Thread {
 
     protected void initApp() {
     }
+
+    protected abstract InputsManager initInputsManager();
 
     public TextureImage createTextureImage(String asset) {
         Supplier<ByteBuffer> loader = () -> Unchecked.call(() -> {
@@ -221,6 +225,14 @@ public abstract class VulkanApplication extends Thread {
         return new VulkanInstances();
     }
 
+    public InputsManager getInputsManager() {
+        return inputsManager;
+    }
+
+    public void addTask(Runnable runnable) {
+        tasks.add(runnable);
+    }
+
     protected void initVulkan() {
         instance = getVulkanInstanceFactory().createInstance();
         debugMessenger = DebugTools.setupDebugMessenger(instance);
@@ -239,41 +251,9 @@ public abstract class VulkanApplication extends Thread {
         mainViewport = new Viewport();
         guiViewport = new Viewport();
 
+        inputsManager = initInputsManager();
+
         createSwapChainObjects();
-
-        mainViewport.camera.setProjection(
-                45,
-                (float) mainViewport.extent.width() / (float) mainViewport.extent.height(),
-                0.1f,
-                10f
-        );
-        System.out.println(width + "x" + height);
-//        guiViewport.camera.setProjection(new Matrix4f(
-//                2.0f / width, 0.0f, 0.0f, -0.0f,
-//                0.0f, 2.0f / height, 0.0f, -0.0f,
-//                0.0f, 0.0f, -2.0f, 1.0f,
-//                0.0f, 0.0f, 0.0f, 1.0f
-//                ).transpose()
-//        );
-
-        float n = 0.1f;
-        float f = 1.5f;
-        float r = 0.5f;
-        float l = -0.5f;
-        float t = 0.5f;
-        float b = -0.5f;
-        guiViewport.camera.setProjection(new Matrix4f(
-                        2.0f / (r - l) / width, 0.0f, 0.0f, -(r + l) / (r - l),
-                        0.0f, -2.0f / (t - b) / height, 0.0f, -(t + b) / (t - b),
-                        0.0f, 0.0f, -2.0f / (f - n), -(f + n) / (f - n),
-                        0.0f, 0.0f, 0.0f, 1.0f
-                )
-//                .transpose()
-        );
-
-        guiViewport.camera.lookAt(new Vector3f(0, 0, 1), new Vector3f(0, -1, 0));
-        guiViewport.camera.getLocation().x = width / 2f;
-        guiViewport.camera.getLocation().y = height / 2f;
 
         syncObjects = SwapChainTools.createSyncObjects(device, swapChainImages, MAX_FRAMES_IN_FLIGHT);
         mainViewport.setCommandBuffers(VulkanCommands.createEmptyCommandBuffers(device, commandPool, swapChainImages.size()));
@@ -319,6 +299,43 @@ public abstract class VulkanApplication extends Thread {
         mainViewport.setSwapChainFramebuffers(SwapChainTools.createFramebuffers(device, swapChainImageViews, depthResources.depthImageView, mainViewport.getRenderPass(), mainViewport.getExtent()));
         guiViewport.setSwapChainFramebuffers(SwapChainTools.createFramebuffers(device, swapChainImageViews, guiViewport.getRenderPass(), guiViewport.getExtent()));
         descriptorPool = VulkanDescriptorSets.createDescriptorPool(device, swapChainImages.size() * 100);
+
+        mainViewport.camera.setProjection(
+                45,
+                (float) mainViewport.extent.width() / (float) mainViewport.extent.height(),
+                0.1f,
+                10f
+        );
+        System.out.println(width + "x" + height);
+//        guiViewport.camera.setProjection(new Matrix4f(
+//                2.0f / width, 0.0f, 0.0f, -0.0f,
+//                0.0f, 2.0f / height, 0.0f, -0.0f,
+//                0.0f, 0.0f, -2.0f, 1.0f,
+//                0.0f, 0.0f, 0.0f, 1.0f
+//                ).transpose()
+//        );
+
+        float n = 0.5f;
+        float f = 1.5f;
+        float r = 0.5f;
+        float l = -0.5f;
+        float t = 0.5f;
+        float b = -0.5f;
+        guiViewport.camera.setProjection(new Matrix4f(
+                        2.0f / (r - l) / width, 0.0f, 0.0f, -(r + l) / (r - l),
+                        0.0f, -2.0f / (t - b) / height, 0.0f, -(t + b) / (t - b),
+                        0.0f, 0.0f, -2.0f / (f - n), 0 /*-(f + n) / (f - n)*/,
+                        0.0f, 0.0f, 0.0f, 1.0f
+                )
+                        .transpose()
+        );
+
+        System.out.println(guiViewport.camera.projection);
+
+//        guiViewport.camera.lookAt(new Vector3f(0, 0, 1), new Vector3f(0, 1, 0));
+        guiViewport.camera.lookAt(new Vector3f(0, 0, 1), new Vector3f(0, -1, 0));
+        guiViewport.camera.getLocation().x = width / 2f;
+        guiViewport.camera.getLocation().y = height / 2f;
 
         prepareGeometries(mainViewport);
         prepareGeometries(guiViewport);

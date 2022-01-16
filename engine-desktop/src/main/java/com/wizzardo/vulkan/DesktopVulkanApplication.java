@@ -1,6 +1,8 @@
 package com.wizzardo.vulkan;
 
 import com.wizzardo.tools.io.IOTools;
+import com.wizzardo.vulkan.input.GlfwInputsManager;
+import com.wizzardo.vulkan.input.InputsManager;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkInstance;
@@ -28,18 +30,18 @@ public class DesktopVulkanApplication extends VulkanApplication {
     protected long window;
 
     @Override
-    protected void logV(Supplier<String> data) {
+    public void logV(Supplier<String> data) {
         System.out.println("V " + data.get());
     }
 
     @Override
-    protected void logE(Supplier<String> data, Throwable e) {
+    public void logE(Supplier<String> data, Throwable e) {
         System.out.println("E " + data.get());
         e.printStackTrace();
     }
 
     @Override
-    protected void logD(Supplier<String> data) {
+    public void logD(Supplier<String> data) {
         System.out.println("D " + data.get());
     }
 
@@ -52,6 +54,10 @@ public class DesktopVulkanApplication extends VulkanApplication {
 
         glfwPollEvents();
         super.doInLoop();
+    }
+
+    public long getWindow() {
+        return window;
     }
 
     @Override
@@ -70,6 +76,11 @@ public class DesktopVulkanApplication extends VulkanApplication {
         if (window == NULL) {
             throw new RuntimeException("Cannot create window");
         }
+    }
+
+    @Override
+    protected InputsManager initInputsManager() {
+        return new GlfwInputsManager(this);
     }
 
     @Override
