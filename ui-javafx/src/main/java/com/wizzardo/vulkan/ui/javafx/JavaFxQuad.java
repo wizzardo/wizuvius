@@ -38,13 +38,13 @@ public class JavaFxQuad extends Geometry {
 
         Vector3f mousePosition = new Vector3f();
         Vector3f local = new Vector3f();
+        boolean[] isDragging = new boolean[1];
         InputsManager inputsManager = bridge.application.getInputsManager();
         inputsManager.addMouseMoveListener((x, y) -> {
             Camera camera = bridge.application.getGuiViewport().getCamera();
             camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition);
 
-            boolean mouseOver = isMouseOver(mousePosition);
-            if (mouseOver) {
+            if (isDragging[0] || isMouseOver(mousePosition)) {
                 Vector3f translation = getLocalTransform().getTranslation();
                 local.set(mousePosition).sub(translation);
                 Platform.runLater(() -> bridge.onMouseMove((int) local.x, (int) local.y, (int) x, (int) y));
@@ -55,16 +55,17 @@ public class JavaFxQuad extends Geometry {
             Camera camera = bridge.application.getGuiViewport().getCamera();
             camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition);
 
-            boolean mouseOver = isMouseOver(mousePosition);
-            if (mouseOver) {
+            if (isMouseOver(mousePosition) || (isDragging[0] && !pressed)) {
                 Vector3f translation = getLocalTransform().getTranslation();
                 local.set(mousePosition).sub(translation);
 
                 int type;
                 if (pressed) {
                     type = AbstractEvents.MOUSEEVENT_PRESSED;
+                    isDragging[0] = true;
                 } else {
                     type = AbstractEvents.MOUSEEVENT_RELEASED;
+                    isDragging[0] = false;
                 }
 
                 int btn = 0;
@@ -87,8 +88,7 @@ public class JavaFxQuad extends Geometry {
             Camera camera = bridge.application.getGuiViewport().getCamera();
             camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition);
 
-            boolean mouseOver = isMouseOver(mousePosition);
-            if (mouseOver) {
+            if (isMouseOver(mousePosition)) {
                 Vector3f translation = getLocalTransform().getTranslation();
                 local.set(mousePosition).sub(translation);
                 int type;
