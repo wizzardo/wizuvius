@@ -25,32 +25,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkAllocationCallbacks;
-import org.lwjgl.vulkan.VkClearValue;
-import org.lwjgl.vulkan.VkCommandBuffer;
-import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
-import org.lwjgl.vulkan.VkDevice;
-import org.lwjgl.vulkan.VkExtent2D;
-import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
-import org.lwjgl.vulkan.VkInstance;
-import org.lwjgl.vulkan.VkOffset2D;
-import org.lwjgl.vulkan.VkPhysicalDevice;
-import org.lwjgl.vulkan.VkPipelineColorBlendAttachmentState;
-import org.lwjgl.vulkan.VkPipelineColorBlendStateCreateInfo;
-import org.lwjgl.vulkan.VkPipelineDepthStencilStateCreateInfo;
-import org.lwjgl.vulkan.VkPipelineInputAssemblyStateCreateInfo;
-import org.lwjgl.vulkan.VkPipelineLayoutCreateInfo;
-import org.lwjgl.vulkan.VkPipelineMultisampleStateCreateInfo;
-import org.lwjgl.vulkan.VkPipelineRasterizationStateCreateInfo;
-import org.lwjgl.vulkan.VkPipelineShaderStageCreateInfo;
-import org.lwjgl.vulkan.VkPipelineVertexInputStateCreateInfo;
-import org.lwjgl.vulkan.VkPipelineViewportStateCreateInfo;
-import org.lwjgl.vulkan.VkPresentInfoKHR;
-import org.lwjgl.vulkan.VkQueue;
-import org.lwjgl.vulkan.VkRect2D;
-import org.lwjgl.vulkan.VkRenderPassBeginInfo;
-import org.lwjgl.vulkan.VkSubmitInfo;
-import org.lwjgl.vulkan.VkViewport;
+import org.lwjgl.vulkan.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -73,8 +48,21 @@ public abstract class VulkanApplication extends Thread {
     static final Set<String> DEVICE_EXTENSIONS = Stream.of(VK_KHR_SWAPCHAIN_EXTENSION_NAME).collect(toSet());
 
     static {
-        Configuration.VULKAN_LIBRARY_NAME.set("libvulkan.so");
-        Configuration.ASSIMP_LIBRARY_NAME.set("libassimp.so");
+        Properties properties = System.getProperties();
+        if (properties.getProperty("os.name", "").contains("Mac")) {
+            Configuration.GLFW_LIBRARY_NAME.set("glfw_async");
+            String arch = properties.getProperty("os.arch", "");
+            if (arch.equals("aarch64")) {
+                Configuration.VULKAN_LIBRARY_NAME.set("macos/arm64/org/lwjgl/vulkan/libMoltenVK.dylib");
+                Configuration.ASSIMP_LIBRARY_NAME.set("macos/arm64/org/lwjgl/assimp/libassimp.dylib");
+            } else if (arch.contains("64")) {
+                Configuration.VULKAN_LIBRARY_NAME.set("macos/x64/org/lwjgl/vulkan/libMoltenVK.dylib");
+                Configuration.ASSIMP_LIBRARY_NAME.set("macos/x64/org/lwjgl/assimp/libassimp.dylib");
+            }
+        } else {
+            Configuration.VULKAN_LIBRARY_NAME.set("libvulkan.so");
+            Configuration.ASSIMP_LIBRARY_NAME.set("libassimp.so");
+        }
 
         if (ENABLE_VALIDATION_LAYERS) {
             VALIDATION_LAYERS = new HashSet<>();
@@ -234,12 +222,18 @@ public abstract class VulkanApplication extends Thread {
     }
 
     protected void initVulkan() {
+        int vkVersion = VK.getInstanceVersionSupported();
+        System.out.println("Vulkan version: "
+                + VK10.VK_VERSION_MAJOR(vkVersion)
+                + "." + VK10.VK_VERSION_MINOR(vkVersion)
+                + "." + VK10.VK_VERSION_PATCH(vkVersion)
+        );
         instance = getVulkanInstanceFactory().createInstance();
         debugMessenger = DebugTools.setupDebugMessenger(instance);
         surface = createSurface(instance);
         physicalDevice = VulkanDevices.pickPhysicalDevice(instance, surface);
 
-        QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(physicalDevice);
+        QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(physicalDevice, surface);
         device = VulkanDevices.createLogicalDevice(physicalDevice, indices);
         graphicsQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());
         transferQueue = VulkanQueues.createQueue(device, indices.getTransferFamily());
@@ -330,7 +324,7 @@ public abstract class VulkanApplication extends Thread {
                         .transpose()
         );
 
-        System.out.println(guiViewport.camera.projection);
+//        System.out.println(guiViewport.camera.projection);
 
 //        guiViewport.camera.lookAt(new Vector3f(0, 0, 1), new Vector3f(0, 1, 0));
         guiViewport.camera.lookAt(new Vector3f(0, 0, 1), new Vector3f(0, -1, 0));

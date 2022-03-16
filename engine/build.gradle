@@ -6,9 +6,9 @@ targetCompatibility = 1.8
 dependencies {
     api 'com.wizzardo.tools:tools:0.24-SNAPSHOT'
     api 'org.joml:joml:1.10.3'
-    api 'org.lwjgl:lwjgl-vulkan:3.3.0'
-    api 'org.lwjgl:lwjgl-assimp:3.3.0'
-    api 'org.lwjgl:lwjgl-stb:3.3.0'
+    api "org.lwjgl:lwjgl-vulkan:${lwjgl}"
+    api "org.lwjgl:lwjgl-assimp:${lwjgl}"
+    api "org.lwjgl:lwjgl-stb:${lwjgl}"
 
     testImplementation "org.assertj:assertj-core:3.18.1"
     testImplementation 'junit:junit:4.13.1'
