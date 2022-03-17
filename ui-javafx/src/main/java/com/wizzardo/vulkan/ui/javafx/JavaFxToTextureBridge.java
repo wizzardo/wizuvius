@@ -6,6 +6,7 @@ import com.sun.javafx.embed.AbstractEvents;
 import com.sun.javafx.embed.EmbeddedStageInterface;
 import com.sun.javafx.embed.EmbeddedSceneInterface;
 import com.sun.javafx.stage.EmbeddedWindow;
+import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.*;
 import com.wizzardo.vulkan.input.KeyState;
 import javafx.application.Platform;
@@ -14,13 +15,13 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDevice;
 
-import java.awt.event.KeyEvent;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -29,7 +30,7 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class JavaFxToTextureBridge {
     protected static final char[] EMPTY_CHARS = new char[0];
-    protected volatile int pixelsNativeFormat;
+    protected static volatile int pixelsNativeFormat;
     protected BufferHolder stagingBuffer;
     protected Material material;
     protected volatile EmbeddedWindow embeddedWindow;
@@ -45,9 +46,31 @@ public class JavaFxToTextureBridge {
     protected Set<TextureHolder> occupiedTextures = Collections.newSetFromMap(new ConcurrentHashMap<>());
     //    protected ConcurrentLinkedQueue<TextureHolder> occupiedTextures = new ConcurrentLinkedQueue<>();
     protected VulkanApplication application;
-    protected volatile int imageFormat;
+    protected static volatile int imageFormat;
     protected int textureCounter = 0;
 
+    public static void init() {
+        CountDownLatch javaFxInit = new CountDownLatch(1);
+        startup(javaFxInit);
+        Unchecked.run(javaFxInit::await);
+    }
+
+    public static void startup(CountDownLatch javaFxInit) {
+        PlatformImpl.startup(() -> {
+            pixelsNativeFormat = Pixels.getNativeFormat();
+            switch (pixelsNativeFormat) {
+                case Pixels.Format.BYTE_ARGB:
+                    //todo do reordering in fragment shader
+                    throw new IllegalArgumentException("Not supported javaFX pixel format " + pixelsNativeFormat);
+                case Pixels.Format.BYTE_BGRA_PRE:
+                    imageFormat = VK_FORMAT_B8G8R8A8_SRGB;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Not supported javaFX pixel format " + pixelsNativeFormat);
+            }
+            javaFxInit.countDown();
+        });
+    }
 
     public static void cleanup() {
         Platform.exit();
@@ -115,21 +138,6 @@ public class JavaFxToTextureBridge {
 
     protected JavaFxToTextureBridge(VulkanApplication application) {
         this.application = application;
-        PlatformImpl.startup(() -> {
-            pixelsNativeFormat = Pixels.getNativeFormat();
-            switch (pixelsNativeFormat) {
-                case Pixels.Format.BYTE_ARGB:
-                    //imageFormat = VK_FORMAT_A
-                    //todo do reordering in fragment shader
-                    throw new IllegalArgumentException("Not supported javaFX pixel format " + pixelsNativeFormat);
-//                    break;
-                case Pixels.Format.BYTE_BGRA_PRE:
-                    imageFormat = VK_FORMAT_B8G8R8A8_SRGB;
-                    break;
-                default:
-                    throw new IllegalArgumentException("Not supported javaFX pixel format " + pixelsNativeFormat);
-            }
-        });
     }
 
     public JavaFxToTextureBridge(VulkanApplication application, int width, int height) {
@@ -350,7 +358,7 @@ public class JavaFxToTextureBridge {
         boolean alt = keyState.isAltPressed();
         boolean meta = keyState.isMetaPressed();
 
-        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, false, false, x, y,
+        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, x, y,
                 screenX, screenY, shift, ctrl, alt, meta, false);
     }
 
@@ -367,7 +375,7 @@ public class JavaFxToTextureBridge {
         boolean meta = keyState.isMetaPressed();
         boolean popupTrigger = button == AbstractEvents.MOUSEEVENT_SECONDARY_BUTTON;
 
-        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, false, false, x, y,
+        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, x, y,
                 screenX, screenY, shift, ctrl, alt, meta, popupTrigger);
     }
 
