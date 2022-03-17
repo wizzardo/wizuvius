@@ -304,14 +304,18 @@ public class Camera {
                 .mul(view)
                 .invert();
 
-        float viewPortLeft = 0;
-        float viewPortRight = 1;
-        float viewPortBottom = 0;
-        float viewPortTop = 1;
+//        float viewPortLeft = 0;
+//        float viewPortRight = 1;
+//        float viewPortBottom = 0;
+//        float viewPortTop = 1;
+//        store.set(
+//                (x / screenWidth - viewPortLeft) / (viewPortRight - viewPortLeft) * 2 - 1,
+//                (y / screenHeight - viewPortBottom) / (viewPortTop - viewPortBottom) * 2 - 1,
+//                projectionZPos * 2 - 1);
 
         store.set(
-                (x / screenWidth - viewPortLeft) / (viewPortRight - viewPortLeft) * 2 - 1,
-                (y / screenHeight - viewPortBottom) / (viewPortTop - viewPortBottom) * 2 - 1,
+                (x / screenWidth) * 2 - 1,
+                (y / screenHeight) * 2 - 1,
                 projectionZPos * 2 - 1);
 
         float w = multProj(inverseMat, store, store);

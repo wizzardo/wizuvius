@@ -101,6 +101,8 @@ public abstract class VulkanApplication extends Thread {
     protected int currentFrame;
     protected volatile int width;
     protected volatile int height;
+    protected volatile int extentWidth;
+    protected volatile int extentHeight;
     protected boolean framebufferResize;
     protected Queue<Runnable> tasks = new ConcurrentLinkedQueue<>();
 
@@ -301,6 +303,10 @@ public abstract class VulkanApplication extends Thread {
                 10f
         );
         System.out.println(width + "x" + height);
+
+        extentWidth = result.swapChainExtent.width();
+        extentHeight = result.swapChainExtent.height();
+        System.out.println("Extent: " + extentWidth + "x" + extentHeight);
 //        guiViewport.camera.setProjection(new Matrix4f(
 //                2.0f / width, 0.0f, 0.0f, -0.0f,
 //                0.0f, 2.0f / height, 0.0f, -0.0f,
@@ -316,8 +322,8 @@ public abstract class VulkanApplication extends Thread {
         float t = 0.5f;
         float b = -0.5f;
         guiViewport.camera.setProjection(new Matrix4f(
-                        2.0f / (r - l) / width, 0.0f, 0.0f, -(r + l) / (r - l),
-                        0.0f, -2.0f / (t - b) / height, 0.0f, -(t + b) / (t - b),
+                        2.0f / (r - l) / extentWidth, 0.0f, 0.0f, -(r + l) / (r - l),
+                        0.0f, -2.0f / (t - b) / extentHeight, 0.0f, -(t + b) / (t - b),
                         0.0f, 0.0f, -2.0f / (f - n), 0 /*-(f + n) / (f - n)*/,
                         0.0f, 0.0f, 0.0f, 1.0f
                 )
@@ -328,8 +334,8 @@ public abstract class VulkanApplication extends Thread {
 
 //        guiViewport.camera.lookAt(new Vector3f(0, 0, 1), new Vector3f(0, 1, 0));
         guiViewport.camera.lookAt(new Vector3f(0, 0, 1), new Vector3f(0, -1, 0));
-        guiViewport.camera.getLocation().x = width / 2f;
-        guiViewport.camera.getLocation().y = height / 2f;
+        guiViewport.camera.getLocation().x = extentWidth / 2f;
+        guiViewport.camera.getLocation().y = extentHeight / 2f;
 
         prepareGeometries(mainViewport);
         prepareGeometries(guiViewport);

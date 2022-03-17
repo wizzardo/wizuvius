@@ -1,11 +1,14 @@
 package com.wizzardo.vulkan.input;
 
 import com.wizzardo.vulkan.DesktopVulkanApplication;
+import org.lwjgl.system.MemoryStack;
 
+import java.nio.FloatBuffer;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.system.MemoryStack.stackPush;
 
 public class GlfwInputsManager implements InputsManager {
     protected final DesktopVulkanApplication application;
@@ -17,11 +20,22 @@ public class GlfwInputsManager implements InputsManager {
     protected KeyState keyState = new GlfwKeyState();
     protected double mousePositionX;
     protected double mousePositionY;
+    protected float windowScaleX = 1;
+    protected float windowScaleY = 1;
 
     public GlfwInputsManager(DesktopVulkanApplication application) {
         this.application = application;
 
         application.addTask(() -> {
+
+            try (MemoryStack stack = stackPush()) {
+                FloatBuffer scaleX = stack.callocFloat(1);
+                FloatBuffer scaleY = stack.callocFloat(1);
+                glfwGetWindowContentScale(application.getWindow(), scaleX, scaleY);
+                windowScaleX = scaleX.get();
+                windowScaleY = scaleY.get();
+            }
+
             glfwSetKeyCallback(application.getWindow(), (window, key, scancode, action, mods) -> {
 //                            System.out.println(key + " " + scancode + " " + action + " " + mods);
                 boolean pressed = action == GLFW_PRESS;
@@ -44,8 +58,8 @@ public class GlfwInputsManager implements InputsManager {
             });
 
             glfwSetCursorPosCallback(application.getWindow(), (window, xpos, ypos) -> {
-                mousePositionX = xpos;
-                mousePositionY = ypos;
+                mousePositionX = xpos * windowScaleX;
+                mousePositionY = ypos * windowScaleY;
                 try {
                     List<MouseMoveListener> list = this.mouseMoveListeners;
                     for (int i = 0; i < list.size(); i++) {
