@@ -295,11 +295,16 @@ public class Camera {
     }
 
     public Vector3f getWorldCoordinates(float x, float y, float projectionZPos, Vector3f store) {
-        if (store == null) {
-            store = new Vector3f();
-        }
+        return getWorldCoordinates(x, y, projectionZPos, store, new Matrix4f());
+    }
 
-        Matrix4f inverseMat = new Matrix4f();
+    public Vector3f getWorldCoordinates(float x, float y, float projectionZPos, Vector3f store, Matrix4f tempMatrix) {
+        if (store == null)
+            store = new Vector3f();
+        if (tempMatrix == null)
+            tempMatrix = new Matrix4f();
+
+        Matrix4f inverseMat = tempMatrix;
         inverseMat.set(projection)
                 .mul(view)
                 .invert();

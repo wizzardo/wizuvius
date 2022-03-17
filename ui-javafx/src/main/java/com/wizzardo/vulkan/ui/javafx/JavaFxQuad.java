@@ -5,6 +5,7 @@ import com.wizzardo.vulkan.*;
 import com.wizzardo.vulkan.input.InputsManager;
 import com.wizzardo.vulkan.scene.Geometry;
 import javafx.application.Platform;
+import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.lwjgl.vulkan.VkDevice;
@@ -36,13 +37,14 @@ public class JavaFxQuad extends Geometry {
         this.mesh = new Mesh(vertices, indices);
         getLocalTransform().getScale().set(bridge.textureWidth, bridge.textureHeight, 1);
 
+        Matrix4f tempMatrix = new Matrix4f();
         Vector3f mousePosition = new Vector3f();
         Vector3f local = new Vector3f();
         boolean[] isDragging = new boolean[1];
         InputsManager inputsManager = bridge.application.getInputsManager();
         inputsManager.addMouseMoveListener((x, y) -> {
             Camera camera = bridge.application.getGuiViewport().getCamera();
-            camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition);
+            camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition, tempMatrix);
 
             if (isDragging[0] || isMouseOver(mousePosition)) {
                 Vector3f translation = getLocalTransform().getTranslation();
@@ -53,7 +55,7 @@ public class JavaFxQuad extends Geometry {
 
         inputsManager.addMouseButtonListener((x, y, button, pressed) -> {
             Camera camera = bridge.application.getGuiViewport().getCamera();
-            camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition);
+            camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition, tempMatrix);
 
             if (isMouseOver(mousePosition) || (isDragging[0] && !pressed)) {
                 Vector3f translation = getLocalTransform().getTranslation();
@@ -86,7 +88,7 @@ public class JavaFxQuad extends Geometry {
 
         inputsManager.addScrollListener((x, y, scrollX, scrollY) -> {
             Camera camera = bridge.application.getGuiViewport().getCamera();
-            camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition);
+            camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition, tempMatrix);
 
             if (isMouseOver(mousePosition)) {
                 Vector3f translation = getLocalTransform().getTranslation();
