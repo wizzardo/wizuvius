@@ -11,3 +11,21 @@ dependencies {
     implementation(project(":engine-desktop"))
     implementation(project(":ui-javafx"))
 }
+
+
+task copyDependencies(type: Copy) {
+    mkdir('build/libs/dependencies')
+    from { sourceSets.main.runtimeClasspath.filter { it.isFile() } }
+    into('build/libs/dependencies')
+}
+
+task releaseJar(type: Jar, dependsOn: copyDependencies) {
+    manifest {
+        attributes(
+                "Main-Class": mainClassName,
+                "Class-Path": sourceSets.main.runtimeClasspath.filter { it.isFile() }.collect { "dependencies/${it.name}" }.join(' ')
+        )
+    }
+    baseName = project.name
+    with jar
+}
