@@ -1,0 +1,56 @@
+$color: white;
+$bg-color: rgba(41, 41, 41, 1);
+
+.App {
+  background: $bg-color;
+  padding: 20px;
+  padding-top: 40px;
+  box-sizing: border-box;
+
+  &.transparent {
+    background: transparent;
+  }
+
+  .TextField {
+    color: $color;
+
+    > .label {
+      color: $color;
+    }
+
+    input {
+      user-select: text;
+      background: transparent;
+    }
+  }
+
+  .AutocompleteSelect > .label {
+    color: $color;
+  }
+
+  .AutocompleteSelect .TextField input {
+    color: $color;
+  }
+
+  .Dialog {
+    border-radius: 2px;
+    color: black;
+
+    .AutocompleteSelect > .label {
+      color: black;
+    }
+
+    .AutocompleteSelect .TextField input {
+      color: black;
+    }
+  }
+
+  .rightPanel {
+    position: absolute;
+    background: #673AB7;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    padding: 20px;
+  }
+}
