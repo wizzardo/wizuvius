@@ -5,15 +5,12 @@ import static org.lwjgl.vulkan.VK10.*;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkDevice;
-import org.lwjgl.vulkan.VkPhysicalDevice;
-import org.lwjgl.vulkan.VkQueue;
-import org.lwjgl.vulkan.VkQueueFamilyProperties;
+import org.lwjgl.vulkan.*;
 
 import java.nio.IntBuffer;
 
 public class VulkanQueues {
-    static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
+    static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, long surface) {
         QueueFamilyIndices indices = new QueueFamilyIndices();
 
         try (MemoryStack stack = stackPush()) {
@@ -25,7 +22,7 @@ public class VulkanQueues {
 
 //            IntBuffer presentSupport = stack.ints(VK_FALSE);
 
-            for (int i = 0; i < queueFamilies.capacity() || !indices.isComplete(); i++) {
+            for (int i = 0; i < queueFamilies.capacity() && !indices.isComplete(); i++) {
                 VkQueueFamilyProperties vkQueueFamilyProperties = queueFamilies.get(i);
                 int flags = vkQueueFamilyProperties.queueFlags();
                 if ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) {
@@ -38,10 +35,13 @@ public class VulkanQueues {
                     indices.setComputeFamily(i);
                 }
 
-//                vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, presentSupport);
+//                IntBuffer surfaceSupported = stack.ints(0);
+//                KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, surfaceSupported);
 //
-//                if(presentSupport.get(0) == VK_TRUE) {
-//                    indices.presentFamily = i;
+////                vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, presentSupport);
+////
+//                if(surfaceSupported.get(0) == VK_TRUE) {
+//                    System.out.println(i+" surface "+(surfaceSupported.get(0) == VK_TRUE));
 //                }
             }
 

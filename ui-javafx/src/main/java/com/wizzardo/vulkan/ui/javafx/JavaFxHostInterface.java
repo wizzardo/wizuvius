@@ -87,7 +87,7 @@ class JavaFxHostInterface implements HostInterface {
 
     @Override
     public void setCursor(CursorFrame cursorFrame) {
-        System.out.println("setCursor: " + cursorFrame);
+//        System.out.println("setCursor: " + cursorFrame);
     }
 
     @Override

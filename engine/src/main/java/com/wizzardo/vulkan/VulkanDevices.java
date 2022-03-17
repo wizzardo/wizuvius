@@ -85,7 +85,7 @@ public class VulkanDevices {
     }
 
     private static boolean isDeviceSuitable(VkPhysicalDevice device, long surface) {
-        QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(device);
+        QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(device, surface);
 
         boolean extensionsSupported = checkDeviceExtensionSupport(device);
         boolean swapChainAdequate = false;

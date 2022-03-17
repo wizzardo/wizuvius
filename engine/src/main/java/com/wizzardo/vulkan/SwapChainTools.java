@@ -2,29 +2,11 @@ package com.wizzardo.vulkan;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memAddress;
-import static org.lwjgl.vulkan.KHRSurface.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-import static org.lwjgl.vulkan.KHRSurface.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
-import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
-import static org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfaceCapabilitiesKHR;
-import static org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR;
-import static org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR;
+import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 import static org.lwjgl.vulkan.KHRSwapchain.nvkCreateSwapchainKHR;
 import static org.lwjgl.vulkan.KHRSwapchain.vkGetSwapchainImagesKHR;
-import static org.lwjgl.vulkan.VK10.VK_FENCE_CREATE_SIGNALED_BIT;
-import static org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_SRGB;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_ASPECT_COLOR_BIT;
-import static org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
-import static org.lwjgl.vulkan.VK10.VK_SHARING_MODE_EXCLUSIVE;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
-import static org.lwjgl.vulkan.VK10.vkCreateFence;
-import static org.lwjgl.vulkan.VK10.vkCreateFramebuffer;
-import static org.lwjgl.vulkan.VK10.vkCreateSemaphore;
+import static org.lwjgl.vulkan.VK10.*;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -42,6 +24,7 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 class SwapChainTools {
 
@@ -255,14 +238,18 @@ class SwapChainTools {
 //                .forEach(availableFormat -> {
 //                    Log.v(TAG, "availableFormat: " + availableFormat.format() + " " + availableFormat.colorSpace());
 //                });
-        VkSurfaceFormatKHR formatKHR = availableFormats.stream()
+        List<VkSurfaceFormatKHR> formats = availableFormats.stream()
+                .collect(Collectors.toList());
+        VkSurfaceFormatKHR formatKHR = formats.stream()
 //                .filter(availableFormat -> availableFormat.format() == VK_FORMAT_B8G8R8_UNORM)
-                .filter(availableFormat -> availableFormat.format() == VK_FORMAT_R8G8B8A8_SRGB)
+//                .filter(availableFormat -> availableFormat.format() == VK_FORMAT_R8G8B8A8_SRGB)
+                .filter(availableFormat -> availableFormat.format() == VK_FORMAT_B8G8R8A8_SRGB || availableFormat.format() == VK_FORMAT_R8G8B8A8_SRGB)
                 .filter(availableFormat -> availableFormat.colorSpace() == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-                .findAny()
+                .findFirst()
                 .orElse(availableFormats.get(0));
 
-//        Log.v(TAG, "selectedFormat: " + formatKHR.format() + " " + formatKHR.colorSpace());
+//        System.out.println("selectedFormat: " + formatKHR.format() + " " + formatKHR.colorSpace());
+//        System.out.println("formats: |" + formats.stream().map(it -> it.format() + " " + it.colorSpace()).collect(Collectors.joining(", ")) + "|");
         return formatKHR;
     }
 
