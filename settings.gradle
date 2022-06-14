@@ -3,5 +3,5 @@ include ':app',
         ':engine-desktop',
         ':ui-javafx',
         ':scene-editor-be',
-        ':sample'
-
+        ':sample',
+        ':samples'
