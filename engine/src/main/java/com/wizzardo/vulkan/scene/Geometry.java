@@ -73,14 +73,11 @@ public class Geometry extends Spatial {
         if (uniformBuffers == null)
             uniformBuffers = UniformBuffers.createUniformBuffers(application.getPhysicalDevice(), application.getDevice(), application.getSwapChainImages());
 
-        if (descriptorSets == null)
-            descriptorSets = VulkanDescriptorSets.createDescriptorSets(application.getDevice(),
-                    application.getSwapChainImages(),
-                    material.descriptorSetLayout,
-                    application.getDescriptorPool(),
-                    material.getTextureImage().textureImageView,
-                    material.getTextureSampler(),
-                    uniformBuffers.uniformBuffers
-            );
+        if (descriptorSets == null) {
+            VulkanDescriptorSets.DescriptorSetsBuilder descriptorSetsBuilder = new VulkanDescriptorSets.DescriptorSetsBuilder(material.bindings)
+                    .withUniformBuffers(uniformBuffers.uniformBuffers);
+
+            descriptorSets = descriptorSetsBuilder.build(application.getDevice(), application.getSwapChainImages(), material.descriptorSetLayout, application.getDescriptorPool());
+        }
     }
 }

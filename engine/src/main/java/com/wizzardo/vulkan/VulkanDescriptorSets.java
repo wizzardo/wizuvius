@@ -30,8 +30,104 @@ import org.lwjgl.vulkan.VkWriteDescriptorSet;
 import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class VulkanDescriptorSets {
+
+    public static abstract class DescriptorSetLayoutBinding {
+        final int binding;
+        final int type;
+        final int stageFlags;
+
+        protected DescriptorSetLayoutBinding(int binding, int type, int stageFlags) {
+            this.binding = binding;
+            this.type = type;
+            this.stageFlags = stageFlags;
+        }
+
+        @Override
+        public String toString() {
+            return "DescriptorSetLayoutBinding{" +
+                    "binding=" + binding +
+                    ", type=" + type +
+                    ", stageFlags=" + stageFlags +
+                    '}';
+        }
+    }
+
+    public static class DescriptorSetLayoutBindingUniformBuffer extends DescriptorSetLayoutBinding {
+        final UniformBuffers uniformBuffers;
+
+        public DescriptorSetLayoutBindingUniformBuffer(int binding, int stageFlags, UniformBuffers uniformBuffers) {
+            super(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stageFlags);
+            this.uniformBuffers = uniformBuffers;
+        }
+    }
+
+    public static class DescriptorSetLayoutBindingUBO extends DescriptorSetLayoutBinding {
+        public DescriptorSetLayoutBindingUBO(int binding, int stageFlags) {
+            super(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stageFlags);
+        }
+    }
+
+    public static class DescriptorSetLayoutBindingImageWithSampler extends DescriptorSetLayoutBinding {
+        final long textureImageView;
+        final long textureSampler;
+
+        public DescriptorSetLayoutBindingImageWithSampler(int binding, int stageFlags, long textureImageView, long textureSampler) {
+            super(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, stageFlags);
+            this.textureImageView = textureImageView;
+            this.textureSampler = textureSampler;
+        }
+    }
+
+    static class DescriptorSetLayoutBuilder {
+        List<DescriptorSetLayoutBinding> bindings = new ArrayList<>();
+
+        public DescriptorSetLayoutBuilder append(DescriptorSetLayoutBinding descriptorSetLayoutBinding) {
+            Optional<DescriptorSetLayoutBinding> binding = bindings.stream().filter(it -> it.binding == descriptorSetLayoutBinding.binding).findFirst();
+            if (binding.isPresent())
+                throw new IllegalArgumentException("There is a binding with this value: " + binding.get());
+
+            if (descriptorSetLayoutBinding.type < 0 || descriptorSetLayoutBinding.type > 10)
+                throw new IllegalArgumentException("descriptorSetLayoutBinding.type should be >= 0 and <= 10, but was " + descriptorSetLayoutBinding.type);
+
+            bindings.add(descriptorSetLayoutBinding);
+            return this;
+        }
+
+        public long build(VkDevice device) {
+            return createDescriptorSetLayout(device, bindings);
+        }
+    }
+
+    public static long createDescriptorSetLayout(VkDevice device, List<DescriptorSetLayoutBinding> bindings) {
+        try (MemoryStack stack = stackPush()) {
+            VkDescriptorSetLayoutBinding.Buffer bindingsBuffer = VkDescriptorSetLayoutBinding.calloc(bindings.size(), stack);
+
+            for (int i = 0; i < bindings.size(); i++) {
+                DescriptorSetLayoutBinding binding = bindings.get(i);
+                VkDescriptorSetLayoutBinding layoutBinding = bindingsBuffer.get(i);
+                layoutBinding.binding(binding.binding);
+                layoutBinding.descriptorCount(1);
+                layoutBinding.descriptorType(binding.type);
+                layoutBinding.pImmutableSamplers(null);
+                layoutBinding.stageFlags(binding.stageFlags);
+            }
+
+            VkDescriptorSetLayoutCreateInfo layoutInfo = VkDescriptorSetLayoutCreateInfo.calloc(stack);
+            layoutInfo.sType(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
+            layoutInfo.pBindings(bindingsBuffer);
+
+            LongBuffer pDescriptorSetLayout = stack.mallocLong(1);
+
+            if (vkCreateDescriptorSetLayout(device, layoutInfo, null, pDescriptorSetLayout) != VK_SUCCESS) {
+                throw new RuntimeException("Failed to create descriptor set layout");
+            }
+            return pDescriptorSetLayout.get(0);
+        }
+    }
+
     static long createDescriptorSetLayout(VkDevice device) {
         try (MemoryStack stack = stackPush()) {
             VkDescriptorSetLayoutBinding.Buffer bindings = VkDescriptorSetLayoutBinding.calloc(2, stack);
@@ -87,6 +183,92 @@ public class VulkanDescriptorSets {
             }
 
             return pDescriptorPool.get(0);
+        }
+    }
+
+
+    public static class DescriptorSetsBuilder {
+        List<DescriptorSetLayoutBinding> bindings;
+        List<Long> uniformBuffers;
+
+        public DescriptorSetsBuilder(List<DescriptorSetLayoutBinding> bindings) {
+            this.bindings = bindings;
+        }
+
+        public DescriptorSetsBuilder withUniformBuffers(List<Long> uniformBuffers) {
+            this.uniformBuffers = uniformBuffers;
+            return this;
+        }
+
+        public List<Long> build(
+                VkDevice device,
+                List<Long> swapChainImages,
+                long descriptorSetLayout,
+                long descriptorPool
+        ) {
+            try (MemoryStack stack = stackPush()) {
+                LongBuffer layouts = stack.mallocLong(swapChainImages.size());
+                for (int i = 0; i < layouts.capacity(); i++) {
+                    layouts.put(i, descriptorSetLayout);
+                }
+
+                VkDescriptorSetAllocateInfo allocInfo = VkDescriptorSetAllocateInfo.calloc(stack);
+                allocInfo.sType(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO);
+                allocInfo.descriptorPool(descriptorPool);
+                allocInfo.pSetLayouts(layouts);
+
+                LongBuffer pDescriptorSets = stack.mallocLong(swapChainImages.size());
+
+                int result = vkAllocateDescriptorSets(device, allocInfo, pDescriptorSets);
+                if (result != VK_SUCCESS) {
+                    throw new RuntimeException("Failed to allocate descriptor sets: " + result);
+                }
+
+                List<Long> descriptorSets = new ArrayList<>(pDescriptorSets.capacity());
+
+                VkWriteDescriptorSet.Buffer descriptorWrites = VkWriteDescriptorSet.calloc(bindings.size(), stack);
+
+                for (int i = 0; i < pDescriptorSets.capacity(); i++) {
+                    long descriptorSet = pDescriptorSets.get(i);
+                    for (int j = 0; j < bindings.size(); j++) {
+                        DescriptorSetLayoutBinding binding = bindings.get(j);
+
+                        VkWriteDescriptorSet writeDescriptorSet = descriptorWrites.get(j);
+                        writeDescriptorSet.dstSet(descriptorSet);
+                        writeDescriptorSet.sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
+                        writeDescriptorSet.dstBinding(binding.binding);
+                        writeDescriptorSet.dstArrayElement(0);
+                        writeDescriptorSet.descriptorType(binding.type);
+                        writeDescriptorSet.descriptorCount(1);
+
+                        if (binding.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER && binding instanceof DescriptorSetLayoutBindingUniformBuffer) {
+                            DescriptorSetLayoutBindingUniformBuffer bindingUniformBuffer = (DescriptorSetLayoutBindingUniformBuffer) binding;
+                            VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1, stack);
+                            bufferInfo.offset(0);
+                            bufferInfo.range(bindingUniformBuffer.uniformBuffers.size);
+                            bufferInfo.buffer(bindingUniformBuffer.uniformBuffers.uniformBuffers.get(0));
+                            writeDescriptorSet.pBufferInfo(bufferInfo);
+                        } else if (binding.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER && binding instanceof DescriptorSetLayoutBindingUBO) {
+                            VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1, stack);
+                            bufferInfo.offset(0);
+                            bufferInfo.range(UniformBufferObject.SIZEOF);
+                            bufferInfo.buffer(uniformBuffers.get(i));
+                            writeDescriptorSet.pBufferInfo(bufferInfo);
+                        } else if (binding.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+                            DescriptorSetLayoutBindingImageWithSampler imageWithSampler = (DescriptorSetLayoutBindingImageWithSampler) binding;
+                            VkDescriptorImageInfo.Buffer imageInfo = VkDescriptorImageInfo.calloc(1, stack);
+                            imageInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                            imageInfo.imageView(imageWithSampler.textureImageView);
+                            imageInfo.sampler(imageWithSampler.textureSampler);
+                            writeDescriptorSet.pImageInfo(imageInfo);
+                        }
+                    }
+
+                    vkUpdateDescriptorSets(device, descriptorWrites, null);
+                    descriptorSets.add(descriptorSet);
+                }
+                return descriptorSets;
+            }
         }
     }
 
