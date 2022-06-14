@@ -6,9 +6,9 @@ public class UniformBufferObject {
 
     public static final int SIZEOF = 3 * 16 * Float.BYTES;
 
-    public Matrix4f model;
-    public Matrix4f view;
-    public Matrix4f proj;
+    public final Matrix4f model;
+    public final Matrix4f view;
+    public final Matrix4f proj;
 
     public UniformBufferObject() {
         model = new Matrix4f();

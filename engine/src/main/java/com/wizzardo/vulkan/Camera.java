@@ -1,7 +1,6 @@
 package com.wizzardo.vulkan;
 
 import org.joml.*;
-import org.lwjgl.vulkan.VkExtent2D;
 
 import java.lang.Math;
 
@@ -48,6 +47,18 @@ public class Camera {
         return getRotationColumn(rotation, 1, null);
     }
 
+    public Vector3f getDirection(Vector3f dest) {
+        return getRotationColumn(rotation, 2, dest);
+    }
+
+    public Vector3f getUp(Vector3f dest) {
+        return getRotationColumn(rotation, 1, dest);
+    }
+
+    public Vector3f getLeft(Vector3f dest) {
+        return getRotationColumn(rotation, 0, dest);
+    }
+
     /**
      * Converts the given position from world space to screen space.
      *
@@ -86,7 +97,7 @@ public class Camera {
         return projection.m03() * vx + projection.m13() * vy + projection.m23() * vz + projection.m33();
     }
 
-    protected Vector3f getRotationColumn(Quaternionf q, int i, Vector3f store) {
+    public static Vector3f getRotationColumn(Quaternionf q, int i, Vector3f store) {
         if (store == null)
             store = new Vector3f();
 
@@ -164,6 +175,38 @@ public class Camera {
         vars.release();
     }
 
+    public void lookAtDirection(Vector3fc dir, Vector3fc up) {
+        lookAtDirection(dir.x(), dir.y(), dir.z(), up.x(), up.y(), up.z(), rotation);
+    }
+
+    public static Quaternionf lookAtDirection(Vector3fc dir, Vector3fc up, Quaternionf dest) {
+        return lookAtDirection(dir.x(), dir.y(), dir.z(), up.x(), up.y(), up.z(), dest);
+    }
+
+    public static Quaternionf lookAtDirection(float dirX, float dirY, float dirZ, float upX, float upY, float upZ, Quaternionf dest) {
+        // Normalize direction
+        float invDirLength = org.joml.Math.invsqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+        float dirnX = dirX * invDirLength;
+        float dirnY = dirY * invDirLength;
+        float dirnZ = dirZ * invDirLength;
+        // left = up x dir
+        float leftX, leftY, leftZ;
+        leftX = upY * dirnZ - upZ * dirnY;
+        leftY = upZ * dirnX - upX * dirnZ;
+        leftZ = upX * dirnY - upY * dirnX;
+        // normalize left
+        float invLeftLength = org.joml.Math.invsqrt(leftX * leftX + leftY * leftY + leftZ * leftZ);
+        leftX *= invLeftLength;
+        leftY *= invLeftLength;
+        leftZ *= invLeftLength;
+        // up = direction x left
+        float upnX = dirnY * leftZ - dirnZ * leftY;
+        float upnY = dirnZ * leftX - dirnX * leftZ;
+        float upnZ = dirnX * leftY - dirnY * leftX;
+
+        return fromRotationMatrix(leftX, upnX, dirnX, leftY, upnY, dirnY, leftZ, upnZ, dirnZ, dest);
+    }
+
     public static float invSqrt(float fValue) {
         return (float) (1.0f / Math.sqrt(fValue));
     }
@@ -174,38 +217,30 @@ public class Camera {
     }
 
 
-    public static Matrix4f fromFrame(Vector3fc location, Vector3fc direction, Vector3fc up, Matrix4f source) {
-        if (source == null)
-            source = new Matrix4f();
+    protected static Matrix4f fromFrame(Vector3fc location, Vector3fc direction, Vector3fc up, Matrix4f source, TempVars vars) {
+        Vector3f fwdVector = vars.vect1.set(direction);
+        Vector3f leftVector = vars.vect2.set(fwdVector).cross(up);
+        Vector3f upVector = vars.vect3.set(leftVector).cross(fwdVector);
 
-        TempVars vars = TempVars.get();
-        try {
-            Vector3f fwdVector = vars.vect1.set(direction);
-            Vector3f leftVector = vars.vect2.set(fwdVector).cross(up);
-            Vector3f upVector = vars.vect3.set(leftVector).cross(fwdVector);
+        source.m00(leftVector.x);
+        source.m10(leftVector.y);
+        source.m20(leftVector.z);
+        source.m30(-leftVector.dot(location));
 
-            source.m00(leftVector.x);
-            source.m10(leftVector.y);
-            source.m20(leftVector.z);
-            source.m30(-leftVector.dot(location));
+        source.m01(upVector.x);
+        source.m11(upVector.y);
+        source.m21(upVector.z);
+        source.m31(-upVector.dot(location));
 
-            source.m01(upVector.x);
-            source.m11(upVector.y);
-            source.m21(upVector.z);
-            source.m31(-upVector.dot(location));
+        source.m02(-fwdVector.x);
+        source.m12(-fwdVector.y);
+        source.m22(-fwdVector.z);
+        source.m32(fwdVector.dot(location));
 
-            source.m02(-fwdVector.x);
-            source.m12(-fwdVector.y);
-            source.m22(-fwdVector.z);
-            source.m32(fwdVector.dot(location));
-
-            source.m03(0f);
-            source.m13(0f);
-            source.m23(0f);
-            source.m33(1f);
-        } finally {
-            vars.release();
-        }
+        source.m03(0f);
+        source.m13(0f);
+        source.m23(0f);
+        source.m33(1f);
         return source;
     }
 
@@ -327,5 +362,11 @@ public class Camera {
         store.mul(1f / w);
 
         return store;
+    }
+
+    protected void updateViewMatrix() {
+        TempVars vars = TempVars.get();
+        Camera.fromFrame(location, getDirection(vars.vect10), getUp(vars.vect9), view, vars);
+        vars.release();
     }
 }

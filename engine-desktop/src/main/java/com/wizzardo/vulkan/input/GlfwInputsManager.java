@@ -119,6 +119,9 @@ public class GlfwInputsManager implements InputsManager {
                     application.logE(e::getMessage, e);
                 }
             });
+            glfwSetErrorCallback((error, description) -> {
+                application.logE(() -> "GLFW.ERROR: " + error + " " + description, new RuntimeException("GLFW.ERROR: " + error + " " + description));
+            });
         });
     }
 

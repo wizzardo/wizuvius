@@ -18,25 +18,32 @@ import java.util.List;
 public class UniformBuffers {
     public final List<Long> uniformBuffers;
     public final List<Long> uniformBuffersMemory;
+    public final int size;
+    public final UniformBufferObject uniformBufferObject = new UniformBufferObject();
 
-    UniformBuffers(List<Long> uniformBuffers, List<Long> uniformBuffersMemory) {
+    UniformBuffers(List<Long> uniformBuffers, List<Long> uniformBuffersMemory, int size) {
         this.uniformBuffers = uniformBuffers;
         this.uniformBuffersMemory = uniformBuffersMemory;
+        this.size = size;
     }
 
     public static UniformBuffers createUniformBuffers(VkPhysicalDevice physicalDevice, VkDevice device, List<Long> swapChainImages) {
+        return createUniformBuffers(physicalDevice, device, swapChainImages.size(), UniformBufferObject.SIZEOF);
+    }
+
+    public static UniformBuffers createUniformBuffers(VkPhysicalDevice physicalDevice, VkDevice device, int count, int size) {
         try (MemoryStack stack = stackPush()) {
-            List<Long> uniformBuffers = new ArrayList<>(swapChainImages.size());
-            List<Long> uniformBuffersMemory = new ArrayList<>(swapChainImages.size());
+            List<Long> uniformBuffers = new ArrayList<>(count);
+            List<Long> uniformBuffersMemory = new ArrayList<>(count);
 
             LongBuffer pBuffer = stack.mallocLong(1);
             LongBuffer pBufferMemory = stack.mallocLong(1);
 
-            for (int i = 0; i < swapChainImages.size(); i++) {
+            for (int i = 0; i < count; i++) {
                 VulkanBuffers.createBuffer(
                         physicalDevice,
                         device,
-                        UniformBufferObject.SIZEOF,
+                        size,
                         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                         pBuffer,
@@ -45,7 +52,7 @@ public class UniformBuffers {
                 uniformBuffers.add(pBuffer.get(0));
                 uniformBuffersMemory.add(pBufferMemory.get(0));
             }
-            return new UniformBuffers(uniformBuffers, uniformBuffersMemory);
+            return new UniformBuffers(uniformBuffers, uniformBuffersMemory, size);
         }
     }
 

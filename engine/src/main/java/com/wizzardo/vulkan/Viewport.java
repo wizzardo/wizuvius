@@ -1,5 +1,6 @@
 package com.wizzardo.vulkan;
 
+import static com.wizzardo.vulkan.Matrices.EMPTY_MATRIX_4F;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.vkDestroyFramebuffer;
 import static org.lwjgl.vulkan.VK10.vkDestroyRenderPass;
@@ -17,6 +18,7 @@ import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkExtent2D;
 import org.lwjgl.vulkan.VkOffset2D;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -117,33 +119,34 @@ public class Viewport {
 
     public void updateModelUniformBuffers(VulkanApplication app, int imageIndex) {
 //        camera.view.setLookAt(camera.getLocation(), camera.getDirection(), Vectors.UNIT_Z);
-        Camera.fromFrame(camera.getLocation(), camera.getDirection(), camera.getUp(), camera.view);
+        camera.updateViewMatrix();
 
         for (int i = 0; i < geometries.size(); i++) {
             Geometry geometry = geometries.get(i);
-            long uniformAddress = geometry.getUniformBuffers().uniformBuffersMemory.get(imageIndex);
-            updateModelUniformBuffer(app, uniformAddress, geometry.getLocalTransform());
+            UniformBuffers uniformBuffers = geometry.getUniformBuffers();
+            updateModelUniformBuffer(app, uniformBuffers, imageIndex, geometry.getLocalTransform());
         }
     }
 
-    protected void updateModelUniformBuffer(VulkanApplication app, long memoryAddress, Transform transform) {
+    protected void updateModelUniformBuffer(VulkanApplication app, UniformBuffers uniformBuffers, int index, Transform transform) {
         try (MemoryStack stack = stackPush()) {
-            UniformBufferObject ubo = new UniformBufferObject();
-
+            UniformBufferObject ubo = uniformBuffers.uniformBufferObject;
+            ubo.model.set(EMPTY_MATRIX_4F);
             ubo.model.translate(transform.getTranslation());
             ubo.model.scale(transform.getScale());
             ubo.model.rotate(transform.getRotation());
             ubo.view.set(camera.view);
             ubo.proj.set(camera.projection);
 
-//            ubo.view.lookAt(2.0f, 2.0f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-//            ubo.proj.perspective((float) Math.toRadians(45),
-//                    (float) extent.width() / (float) extent.height(), 0.1f, 10.0f);
-//            ubo.proj.m11(ubo.proj.m11() * -1);
+            long memoryAddress = uniformBuffers.uniformBuffersMemory.get(index);
 
-            PointerBuffer data = stack.mallocPointer(1);
+            // allocates 48 bytes
+            PointerBuffer data = stack.mallocPointer(1); // todo reuse one buffer for all geometries in the list
             vkMapMemory(app.getDevice(), memoryAddress, 0, UniformBufferObject.SIZEOF, 0, data);
-            Utils.memcpy(data.getByteBuffer(0, UniformBufferObject.SIZEOF), ubo);
+
+            // allocates 64 bytes
+            ByteBuffer byteBuffer = data.getByteBuffer(0, UniformBufferObject.SIZEOF); // todo reuse one buffer for all geometries in the list
+            Utils.memcpy(byteBuffer, ubo);
             vkUnmapMemory(app.getDevice(), memoryAddress);
         }
     }

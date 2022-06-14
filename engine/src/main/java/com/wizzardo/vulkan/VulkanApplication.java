@@ -681,6 +681,7 @@ public abstract class VulkanApplication extends Thread {
     }
 
     protected VkCommandBuffer recordCommands(Viewport viewport, int imageIndex) {
+        // allocates 328 + 168*geometries
         try (MemoryStack stack = stackPush()) {
             VkCommandBuffer commandBuffer = viewport.getCommandBuffers().get(imageIndex);
 

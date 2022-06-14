@@ -10,6 +10,7 @@ import org.lwjgl.vulkan.VkInstance;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
@@ -28,6 +29,26 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 public class DesktopVulkanApplication extends VulkanApplication {
 
     protected long window;
+    protected long prevAllocation = 0;
+    protected com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+    protected boolean allocationTrackingEnabled = threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled();
+    protected long threadId = -1;
+
+
+    protected void printAllocation(String mark) {
+        if (threadId == -1)
+            threadId = Thread.currentThread().getId();
+
+        if (allocationTrackingEnabled) {
+            long allocatedBytes = threadMXBean.getThreadAllocatedBytes(threadId);
+            if (allocatedBytes - prevAllocation > 0) {
+                System.out.println(mark + " allocatedBytes: " + (allocatedBytes - prevAllocation));
+
+                allocatedBytes = threadMXBean.getThreadAllocatedBytes(threadId);
+                prevAllocation = allocatedBytes;
+            }
+        }
+    }
 
     @Override
     public void logV(Supplier<String> data) {
@@ -80,6 +101,9 @@ public class DesktopVulkanApplication extends VulkanApplication {
 
     @Override
     protected InputsManager initInputsManager() {
+        if (inputsManager != null)
+            throw new IllegalStateException("InputsManager is already initialised");
+
         return new GlfwInputsManager(this);
     }
 
