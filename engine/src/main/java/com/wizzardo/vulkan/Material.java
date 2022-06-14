@@ -4,8 +4,11 @@ import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
 import org.lwjgl.vulkan.VkDevice;
 
+import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -101,12 +104,40 @@ public class Material {
         }
 
         if (pipelineLayout == 0L) {
-            createPipeline(application, viewport);
+            addShaderChangeListener(application, viewport);
+            CreateGraphicsPipelineResult pipeline = createPipeline(application, viewport);
+
+            pipelineLayout = pipeline.pipelineLayout;
+            graphicsPipeline = pipeline.graphicsPipeline;
         }
 
     }
 
-    private void createPipeline(VulkanApplication application, Viewport viewport) {
+    protected void addShaderChangeListener(VulkanApplication application, Viewport viewport) {
+        if (application.isDevelopmentEnvironment()) {
+            Consumer<File> fileChangeListener = file -> {
+                if (pipelineLayout == 0)
+                    return;
+
+                Path path = file.toPath();
+                if (path.endsWith(fragmentShader) || path.endsWith(vertexShader)) {
+                    CreateGraphicsPipelineResult pipeline = createPipeline(application, viewport);
+                    long prevPipelineLayout = pipelineLayout;
+                    long prevGraphicsPipeline = graphicsPipeline;
+                    application.addTask(() -> {
+                        pipelineLayout = pipeline.pipelineLayout;
+                        graphicsPipeline = pipeline.graphicsPipeline;
+
+                        vkDestroyPipeline(application.device, prevGraphicsPipeline, null);
+                        vkDestroyPipelineLayout(application.device, prevPipelineLayout, null);
+                    });
+                }
+            };
+            application.addResourceChangeListener(fileChangeListener);
+        }
+    }
+
+    protected CreateGraphicsPipelineResult createPipeline(VulkanApplication application, Viewport viewport) {
         ByteBuffer vertShaderSPIRV = Unchecked.call(() -> {
             byte[] bytes = IOTools.bytes(application.loadAsset(vertexShader));
             ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
@@ -129,7 +160,6 @@ public class Material {
                 viewport.getRenderPass(),
                 descriptorSetLayout
         );
-        pipelineLayout = pipeline.pipelineLayout;
-        graphicsPipeline = pipeline.graphicsPipeline;
+        return pipeline;
     }
 }

@@ -17,4 +17,6 @@ dependencies {
     api "org.lwjgl:lwjgl-assimp:${lwjgl}:${lwjglNative}"
     api "org.lwjgl:lwjgl-shaderc:${lwjgl}"
     api "org.lwjgl:lwjgl-shaderc:${lwjgl}:${lwjglNative}"
+
+    implementation 'io.methvin:directory-watcher:0.15.1'
 }

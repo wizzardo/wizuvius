@@ -1,5 +1,6 @@
 package com.wizzardo.vulkan;
 
+import com.wizzardo.tools.io.FileTools;
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.vulkan.input.GlfwInputsManager;
 import com.wizzardo.vulkan.input.InputsManager;
@@ -8,11 +9,14 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkInstance;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -33,7 +37,8 @@ public class DesktopVulkanApplication extends VulkanApplication {
     protected com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
     protected boolean allocationTrackingEnabled = threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled();
     protected long threadId = -1;
-
+    protected ResourcesListener resourcesListener;
+    protected File folder = new File("src/main/resources");
 
     protected void printAllocation(String mark) {
         if (threadId == -1)
@@ -48,6 +53,18 @@ public class DesktopVulkanApplication extends VulkanApplication {
                 prevAllocation = allocatedBytes;
             }
         }
+    }
+
+    @Override
+    public void run() {
+        if (development && resourcesListener == null) {
+            resourcesListener = createResourcesListener();
+        }
+        super.run();
+    }
+
+    protected ResourcesListener createResourcesListener() {
+        return new ResourcesListener(Arrays.asList(folder.getAbsolutePath()));
     }
 
     @Override
@@ -152,24 +169,39 @@ public class DesktopVulkanApplication extends VulkanApplication {
 
     @Override
     protected InputStream loadAsset(String asset) throws IOException {
-        if (asset.toLowerCase().endsWith(".spv")) {
-            String name = asset.substring(0, asset.length() - 4);
-            ShaderSPIRVUtils.ShaderKind kind;
-            if (name.toLowerCase().endsWith(".frag"))
-                kind = ShaderSPIRVUtils.ShaderKind.FRAGMENT_SHADER;
-            else if (name.toLowerCase().endsWith(".vert"))
-                kind = ShaderSPIRVUtils.ShaderKind.VERTEX_SHADER;
-            else
-                throw new IllegalArgumentException();
+        String name = asset.toLowerCase();
+        if (name.endsWith(".spv")) {
+            name = asset.substring(0, asset.length() - 4);
+        }
 
-            String source = new String(IOTools.bytes(loadAsset(name)), StandardCharsets.UTF_8);
+        ShaderSPIRVUtils.ShaderKind kind = null;
+        if (name.toLowerCase().endsWith(".frag"))
+            kind = ShaderSPIRVUtils.ShaderKind.FRAGMENT_SHADER;
+        else if (name.toLowerCase().endsWith(".vert"))
+            kind = ShaderSPIRVUtils.ShaderKind.VERTEX_SHADER;
+
+        if (kind != null) {
+            String source;
+            File file = new File(folder, name);
+            if (file.exists())
+                source = new String(FileTools.bytes(file), StandardCharsets.UTF_8);
+            else
+                source = new String(IOTools.bytes(this.getClass().getResourceAsStream("/" + name)), StandardCharsets.UTF_8);
+
             ShaderSPIRVUtils.SPIRV spirv = ShaderSPIRVUtils.compileShader(name, source, kind);
             byte[] bytes = new byte[spirv.bytecode().limit()];
             spirv.bytecode().get(bytes);
             spirv.free();
+
             return new ByteArrayInputStream(bytes);
         }
         return this.getClass().getResourceAsStream("/" + asset);
     }
 
+    @Override
+    public boolean addResourceChangeListener(Consumer<File> listener) {
+        if (resourcesListener != null)
+            return resourcesListener.addListener(listener);
+        return false;
+    }
 }

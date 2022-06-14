@@ -27,6 +27,7 @@ import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -34,6 +35,7 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -110,6 +112,7 @@ public abstract class VulkanApplication extends Thread {
     protected long previousPrintFps = System.nanoTime();
     protected long previousFrame = System.nanoTime();
     protected int fpsCounter = 0;
+    protected boolean development = new File("build.gradle").exists();
 
 
     private static void destroyDebugUtilsMessengerEXT(VkInstance instance, long debugMessenger, VkAllocationCallbacks allocationCallbacks) {
@@ -174,6 +177,9 @@ public abstract class VulkanApplication extends Thread {
 
     protected abstract InputStream loadAsset(String asset) throws IOException;
 
+    public boolean isDevelopmentEnvironment() {
+        return development;
+    }
 
     public VkDevice getDevice() {
         return device;
@@ -757,4 +763,11 @@ public abstract class VulkanApplication extends Thread {
         }
     }
 
+    public boolean addResourceChangeListener(Consumer<File> listener) {
+        return false;
+    }
+
+    public boolean removeResourceChangeListener(Consumer<File> listener) {
+        return false;
+    }
 }
