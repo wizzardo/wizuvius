@@ -21,22 +21,10 @@ import java.util.Map;
  */
 public final class AlignmentUtils {
 
-    private AlignmentUtils() {
-    }
-
-    public static int sizeof(Object obj) {
-        return obj == null ? 0 : SIZEOF_CACHE.getOrDefault(obj.getClass(), 0);
-    }
-
-    public static int alignof(Object obj) {
-        return obj == null ? 0 : SIZEOF_CACHE.getOrDefault(obj.getClass(), Integer.BYTES);
-    }
-
-    public static int alignas(int offset, int alignment) {
-        return offset % alignment == 0 ? offset : ((offset - 1) | (alignment - 1)) + 1;
-    }
-
     private static final Map<Class<?>, Integer> SIZEOF_CACHE = new HashMap<>();
+
+    public static final int VECTOR_4F = 4 * Float.BYTES;
+    public static final int MATRIX_4F = VECTOR_4F;
 
     static {
         SIZEOF_CACHE.put(Byte.class, Byte.BYTES);
@@ -49,8 +37,27 @@ public final class AlignmentUtils {
 
         SIZEOF_CACHE.put(Vector2f.class, 2 * Float.BYTES);
         SIZEOF_CACHE.put(Vector3f.class, 3 * Float.BYTES);
-        SIZEOF_CACHE.put(Vector4f.class, 4 * Float.BYTES);
+        SIZEOF_CACHE.put(Vector4f.class, VECTOR_4F);
 
         SIZEOF_CACHE.put(Matrix4f.class, SIZEOF_CACHE.get(Vector4f.class));
+    }
+
+    private AlignmentUtils() {
+    }
+
+    public static int sizeof(Object obj) {
+        return obj == null ? 0 : SIZEOF_CACHE.getOrDefault(obj.getClass(), 0);
+    }
+
+    public static int alignof(Object obj) {
+        return obj == null ? 0 : SIZEOF_CACHE.getOrDefault(obj.getClass(), Integer.BYTES);
+    }
+
+    public static int alignof(Matrix4f obj) {
+        return obj == null ? 0 : VECTOR_4F;
+    }
+
+    public static int alignas(int offset, int alignment) {
+        return offset % alignment == 0 ? offset : ((offset - 1) | (alignment - 1)) + 1;
     }
 }

@@ -49,12 +49,24 @@ public class Frame {
         return stack.longs(imageAvailableSemaphore);
     }
 
+    public LongBuffer pImageAvailableSemaphore(LongBuffer buffer) {
+        return buffer.put(0, imageAvailableSemaphore);
+    }
+
     public LongBuffer pRenderFinishedSemaphore(MemoryStack stack) {
         return stack.longs(renderFinishedSemaphore);
     }
 
+    public LongBuffer pRenderFinishedSemaphore(LongBuffer buffer) {
+        return buffer.put(0, renderFinishedSemaphore);
+    }
+
     public LongBuffer pFence(MemoryStack stack) {
         return stack.longs(fence);
+    }
+
+    public LongBuffer pFence(LongBuffer buffer) {
+        return buffer.put(0, fence);
     }
 
     public void onFinish() {

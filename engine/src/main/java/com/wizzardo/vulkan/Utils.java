@@ -17,6 +17,7 @@ import static org.lwjgl.vulkan.VK10.vkFreeMemory;
 import static org.lwjgl.vulkan.VK10.vkMapMemory;
 import static org.lwjgl.vulkan.VK10.vkUnmapMemory;
 
+import org.joml.Matrix4f;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.Pointer;
@@ -52,11 +53,11 @@ public class Utils {
         buffer.rewind();
     }
 
-    static void memcpy(ByteBuffer buffer, UniformBufferObject ubo) {
+    static void memcpy(ByteBuffer buffer, Matrix4f model, Matrix4f view, Matrix4f proj) {
         final int mat4Size = 16 * Float.BYTES;
-        ubo.model.get(0, buffer);
-        ubo.view.get(alignas(mat4Size, alignof(ubo.view)), buffer);
-        ubo.proj.get(alignas(mat4Size * 2, alignof(ubo.view)), buffer);
+        model.get(0, buffer);
+        view.get(alignas(mat4Size, AlignmentUtils.MATRIX_4F), buffer);
+        proj.get(alignas(mat4Size * 2, AlignmentUtils.MATRIX_4F), buffer);
     }
 
     static void memcpy(ByteBuffer buffer, short[] indices) {

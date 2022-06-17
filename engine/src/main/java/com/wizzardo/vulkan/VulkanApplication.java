@@ -23,6 +23,7 @@ import com.wizzardo.vulkan.scene.Geometry;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -30,6 +31,7 @@ import org.lwjgl.vulkan.*;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
@@ -357,9 +359,37 @@ public abstract class VulkanApplication extends Thread {
 
     }
 
+    static class DrawFrameTempData {
+        final IntBuffer pImageIndex;
+        final LongBuffer pLong;
+        final LongBuffer pLong2;
+        final IntBuffer pInt;
+        final PointerBuffer pCommandBuffers;
+        final VkSubmitInfo submitInfo;
+        final VkPresentInfoKHR presentInfo;
+        final CommandBufferTempData commandBufferTempData;
+        final PointerBuffer pPointerBuffer;
+
+        DrawFrameTempData(MemoryStack stack) {
+            pImageIndex = stack.mallocInt(1);
+            pLong = stack.mallocLong(1);
+            pLong2 = stack.mallocLong(1);
+            pInt = stack.mallocInt(1);
+            pCommandBuffers = stack.mallocPointer(2);
+            submitInfo = VkSubmitInfo.calloc(stack);
+            presentInfo = VkPresentInfoKHR.calloc(stack);
+            commandBufferTempData = new CommandBufferTempData(stack);
+            pPointerBuffer = stack.mallocPointer(1);
+        }
+    }
+
     protected void mainLoop() {
-        while (running) {
-            doInLoop();
+        try (MemoryStack stack = stackPush()) {
+            DrawFrameTempData tempData = new DrawFrameTempData(stack);
+            while (running) {
+                drawFrame(tempData);
+                doInLoop();
+            }
         }
 
         // Wait for the device to complete all operations before release resources
@@ -367,8 +397,6 @@ public abstract class VulkanApplication extends Thread {
     }
 
     protected void doInLoop() {
-        drawFrame();
-
         while (!tasks.isEmpty()) {
             try {
                 tasks.poll().run();
@@ -592,91 +620,113 @@ public abstract class VulkanApplication extends Thread {
         return System.nanoTime() / 1_000_000_000.0;
     }
 
-    protected void drawFrame() {
-        try (MemoryStack stack = stackPush()) {
-            Frame thisFrame = getCurrentFrame();
-            vkWaitForFences(device, thisFrame.pFence(stack), true, UINT64_MAX);
+    protected long prevAllocation = 0;
+    protected com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+    protected boolean allocationTrackingEnabled = threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled();
+    protected long threadId = -1;
 
-            IntBuffer pImageIndex = stack.mallocInt(1);
-            int vkResult = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, thisFrame.imageAvailableSemaphore(), VK_NULL_HANDLE, pImageIndex);
-            if (vkResult == VK_ERROR_OUT_OF_DATE_KHR) {
-                logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
-                recreateSwapChain();
-                return;
-            } else if (vkResult != VK_SUCCESS) {
-                throw new RuntimeException("Cannot get image");
+    protected void printAllocation(String mark) {
+        if (threadId == -1)
+            threadId = Thread.currentThread().getId();
+
+        if (allocationTrackingEnabled) {
+            long allocatedBytes = threadMXBean.getThreadAllocatedBytes(threadId);
+            if (allocatedBytes - prevAllocation > 0) {
+                System.out.println(mark + " allocatedBytes: " + (allocatedBytes - prevAllocation));
+
+                allocatedBytes = threadMXBean.getThreadAllocatedBytes(threadId);
+                prevAllocation = allocatedBytes;
             }
+        }
+    }
 
-            final int imageIndex = pImageIndex.get(0);
+    protected void drawFrame(DrawFrameTempData tempData) {
+        printAllocation("drawFrame start");
+        Frame thisFrame = getCurrentFrame();
+        vkWaitForFences(device, thisFrame.pFence(tempData.pLong), true, UINT64_MAX);
 
-            Frame prev = syncObjects.byImage(imageIndex);
-            if (prev != null) {
-                vkWaitForFences(device, prev.pFence(stack), true, UINT64_MAX);
-                prev.onFinish();
-                prev.resetListeners();
-            }
-
-            syncObjects.setByImage(imageIndex, thisFrame);
-
-            long time = System.nanoTime();
-            double tpf = (time - previousFrame) / 1_000_000_000.0;
-            previousFrame = time;
-
-            simpleUpdate(tpf);
-
-            mainViewport.updateModelUniformBuffers(this, imageIndex);
-            guiViewport.updateModelUniformBuffers(this, imageIndex);
-
-            VkCommandBuffer commandBuffer = recordCommands(mainViewport, imageIndex);
-            VkCommandBuffer guiCommandBuffer = recordCommands(guiViewport, imageIndex);
-
-            VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack);
-            submitInfo.sType(VK_STRUCTURE_TYPE_SUBMIT_INFO);
-
-            submitInfo.waitSemaphoreCount(1);
-            submitInfo.pWaitSemaphores(thisFrame.pImageAvailableSemaphore(stack));
-            submitInfo.pWaitDstStageMask(stack.ints(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT));
-            submitInfo.pSignalSemaphores(thisFrame.pRenderFinishedSemaphore(stack));
-            submitInfo.pCommandBuffers(stack.pointers(commandBuffer, guiCommandBuffer));
-
-            vkResetFences(device, thisFrame.pFence(stack));
-
-            if ((vkResult = vkQueueSubmit(graphicsQueue, submitInfo, thisFrame.fence())) != VK_SUCCESS) {
-                vkResetFences(device, thisFrame.pFence(stack));
-                throw new RuntimeException("Failed to submit draw command buffer: " + vkResult);
-            }
-
-            VkPresentInfoKHR presentInfo = VkPresentInfoKHR.calloc(stack);
-            presentInfo.sType(VK_STRUCTURE_TYPE_PRESENT_INFO_KHR);
-            presentInfo.pWaitSemaphores(thisFrame.pRenderFinishedSemaphore(stack));
-            presentInfo.swapchainCount(1);
-            presentInfo.pSwapchains(stack.longs(swapChain));
-            presentInfo.pImageIndices(pImageIndex);
-
-            vkResult = vkQueuePresentKHR(presentQueue, presentInfo);
-            if (vkResult == VK_ERROR_OUT_OF_DATE_KHR || vkResult == VK_SUBOPTIMAL_KHR || framebufferResize) {
-                framebufferResize = false;
-                if (vkResult == VK_ERROR_OUT_OF_DATE_KHR)
-                    logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
-                if (vkResult == VK_SUBOPTIMAL_KHR)
-                    logV(() -> "VK_SUBOPTIMAL_KHR");
-                if (framebufferResize)
-                    logV(() -> "framebufferResize");
-                recreateSwapChain();
-            } else if (vkResult != VK_SUCCESS) {
-                throw new RuntimeException("Failed to present swap chain image");
-            }
-
-            currentFrame = (currentFrame + 1) % syncObjects.getFramesCount();
+        int vkResult = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, thisFrame.imageAvailableSemaphore(), VK_NULL_HANDLE, tempData.pImageIndex);
+        if (vkResult == VK_ERROR_OUT_OF_DATE_KHR) {
+            logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
+            recreateSwapChain();
+            return;
+        } else if (vkResult != VK_SUCCESS) {
+            throw new RuntimeException("Cannot get image");
         }
 
-        fpsCounter++;
+        final int imageIndex = tempData.pImageIndex.get(0);
+
+        Frame prev = syncObjects.byImage(imageIndex);
+        if (prev != null) {
+            vkWaitForFences(device, prev.pFence(tempData.pLong), true, UINT64_MAX);
+            prev.onFinish();
+            prev.resetListeners();
+        }
+
+        syncObjects.setByImage(imageIndex, thisFrame);
+
         long time = System.nanoTime();
+        double tpf = (time - previousFrame) / 1_000_000_000.0;
+        previousFrame = time;
+
+        printAllocation("drawFrame before simpleUpdate");
+        simpleUpdate(tpf);
+        printAllocation("drawFrame after simpleUpdate");
+
+        mainViewport.updateModelUniformBuffers(this, imageIndex, tempData.pPointerBuffer);
+        guiViewport.updateModelUniformBuffers(this, imageIndex, tempData.pPointerBuffer);
+        printAllocation("drawFrame after updateModelUniformBuffers");
+
+        VkCommandBuffer commandBuffer = recordCommands(mainViewport, imageIndex, tempData.commandBufferTempData);
+        VkCommandBuffer guiCommandBuffer = recordCommands(guiViewport, imageIndex, tempData.commandBufferTempData);
+        printAllocation("drawFrame after recordCommands");
+
+        vkResetFences(device, thisFrame.pFence(tempData.pLong));
+
+        VkSubmitInfo submitInfo = tempData.submitInfo;
+        submitInfo.sType(VK_STRUCTURE_TYPE_SUBMIT_INFO);
+
+        submitInfo.waitSemaphoreCount(1);
+        submitInfo.pWaitSemaphores(thisFrame.pImageAvailableSemaphore(tempData.pLong));
+        submitInfo.pWaitDstStageMask(tempData.pInt.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT));
+        submitInfo.pSignalSemaphores(thisFrame.pRenderFinishedSemaphore(tempData.pLong2));
+        submitInfo.pCommandBuffers(tempData.pCommandBuffers.put(0, commandBuffer).put(1, guiCommandBuffer));
+
+        if ((vkResult = vkQueueSubmit(graphicsQueue, submitInfo, thisFrame.fence())) != VK_SUCCESS) {
+            vkResetFences(device, thisFrame.pFence(tempData.pLong));
+            throw new RuntimeException("Failed to submit draw command buffer: " + vkResult);
+        }
+
+        VkPresentInfoKHR presentInfo = tempData.presentInfo;
+        presentInfo.sType(VK_STRUCTURE_TYPE_PRESENT_INFO_KHR);
+        presentInfo.pWaitSemaphores(thisFrame.pRenderFinishedSemaphore(tempData.pLong));
+        presentInfo.swapchainCount(1);
+        presentInfo.pSwapchains(tempData.pLong2.put(0, swapChain));
+        presentInfo.pImageIndices(tempData.pImageIndex);
+
+        vkResult = vkQueuePresentKHR(presentQueue, presentInfo);
+        if (vkResult == VK_ERROR_OUT_OF_DATE_KHR || vkResult == VK_SUBOPTIMAL_KHR || framebufferResize) {
+            framebufferResize = false;
+            if (vkResult == VK_ERROR_OUT_OF_DATE_KHR)
+                logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
+            if (vkResult == VK_SUBOPTIMAL_KHR)
+                logV(() -> "VK_SUBOPTIMAL_KHR");
+            if (framebufferResize)
+                logV(() -> "framebufferResize");
+            recreateSwapChain();
+        } else if (vkResult != VK_SUCCESS) {
+            throw new RuntimeException("Failed to present swap chain image");
+        }
+
+        currentFrame = (currentFrame + 1) % syncObjects.getFramesCount();
+
+        fpsCounter++;
         if (time - previousPrintFps >= 1_000_000_000) {
             System.out.println("fps: " + fpsCounter);
             fpsCounter = 0;
             previousPrintFps = time;
         }
+        printAllocation("drawFrame end");
     }
 
     public Frame getCurrentFrame() {
@@ -686,81 +736,101 @@ public abstract class VulkanApplication extends Thread {
     protected void simpleUpdate(double tpf) {
     }
 
-    protected VkCommandBuffer recordCommands(Viewport viewport, int imageIndex) {
-        // allocates 328 + 168*geometries
-        try (MemoryStack stack = stackPush()) {
-            VkCommandBuffer commandBuffer = viewport.getCommandBuffers().get(imageIndex);
+    static class CommandBufferTempData {
+        final VkCommandBufferBeginInfo beginInfo;
+        final VkRenderPassBeginInfo renderPassInfo;
+        final VkRect2D renderArea;
+        final VkClearValue.Buffer clearValues;
+        //        final         FloatBuffer clearColor;
+        final LongBuffer pLong_1;
+        final LongBuffer pLong_2;
+
+        CommandBufferTempData(MemoryStack stack) {
+            beginInfo = VkCommandBufferBeginInfo.calloc(stack);
+            renderPassInfo = VkRenderPassBeginInfo.calloc(stack);
+            renderArea = VkRect2D.calloc(stack);
+            clearValues = VkClearValue.calloc(2, stack);
+
+//            clearColor = stack.floats(0.0f, 0.0f, 0.0f, 1.0f);
+            clearValues.get(0).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 1.0f));
+            clearValues.get(1).depthStencil().set(1.0f, 0);
+            pLong_1 = stack.longs(0);
+            pLong_2 = stack.longs(0);
+        }
+    }
+
+    protected VkCommandBuffer recordCommands(Viewport viewport, int imageIndex, CommandBufferTempData tempData) {
+        VkCommandBuffer commandBuffer = viewport.getCommandBuffers().get(imageIndex);
 
 //            if (vkResetCommandBuffer(commandBuffer, 0) != VK_SUCCESS) {
 //                throw new RuntimeException("Failed to reset command buffer");
 //            }
 
-            VkCommandBufferBeginInfo beginInfo = VkCommandBufferBeginInfo.calloc(stack);
-            beginInfo.sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
-            beginInfo.flags(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        VkCommandBufferBeginInfo beginInfo = tempData.beginInfo;
+        beginInfo.sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
+        beginInfo.flags(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-            VkRenderPassBeginInfo renderPassInfo = VkRenderPassBeginInfo.calloc(stack);
-            renderPassInfo.sType(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
+        VkRenderPassBeginInfo renderPassInfo = tempData.renderPassInfo;
+        renderPassInfo.sType(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
 
-            renderPassInfo.renderPass(viewport.getRenderPass());
+        renderPassInfo.renderPass(viewport.getRenderPass());
 
-            VkRect2D renderArea = VkRect2D.calloc(stack);
-            renderArea.offset(viewport.getOffset());
-            renderArea.extent(viewport.getExtent());
-            renderPassInfo.renderArea(renderArea);
+        VkRect2D renderArea = tempData.renderArea;
+        renderArea.offset(viewport.getOffset());
+        renderArea.extent(viewport.getExtent());
+        renderPassInfo.renderArea(renderArea);
 
-            VkClearValue.Buffer clearValues = VkClearValue.calloc(2, stack);
-            clearValues.get(0).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 1.0f));
-            clearValues.get(1).depthStencil().set(1.0f, 0);
-            renderPassInfo.pClearValues(clearValues);
+        VkClearValue.Buffer clearValues = tempData.clearValues;
+//            clearValues.get(0).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 1.0f));
+//            clearValues.get(1).depthStencil().set(1.0f, 0);
+        renderPassInfo.pClearValues(clearValues);
 
-            if (vkBeginCommandBuffer(commandBuffer, beginInfo) != VK_SUCCESS) {
-                throw new RuntimeException("Failed to begin recording command buffer");
-            }
-
-            renderPassInfo.framebuffer(viewport.getSwapChainFramebuffers().get(imageIndex));
-
-            vkCmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-            long previousGraphicsPipeline = 0;
-            Mesh previousMesh = null;
-            List<Geometry> geometries = viewport.getGeometries();
-            for (int j = 0; j < geometries.size(); j++) {
-                Geometry geometry = geometries.get(j);
-
-                long graphicsPipeline = geometry.getMaterial().graphicsPipeline;
-                if (graphicsPipeline != previousGraphicsPipeline) {
-                    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-                    previousGraphicsPipeline = graphicsPipeline;
-                }
-
-                Mesh mesh = geometry.getMesh();
-                if (mesh != previousMesh) {
-                    LongBuffer vertexBuffers = stack.longs(mesh.getVertexBuffer().buffer);
-                    LongBuffer offsets = stack.longs(0);
-                    vkCmdBindVertexBuffers(commandBuffer, 0, vertexBuffers, offsets);
-                    vkCmdBindIndexBuffer(commandBuffer, mesh.getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32); // todo: use VK_INDEX_TYPE_UINT16 if short is enough
-                    previousMesh = mesh;
-                }
-
-                vkCmdBindDescriptorSets(
-                        commandBuffer,
-                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-                        geometry.getMaterial().pipelineLayout,
-                        0,
-                        stack.longs(geometry.getDescriptorSet(imageIndex)),
-                        null
-                );
-
-                vkCmdDrawIndexed(commandBuffer, mesh.getIndicesLength(), 1, 0, 0, 0);
-            }
-
-            vkCmdEndRenderPass(commandBuffer);
-            if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-                throw new RuntimeException("Failed to record command buffer");
-            }
-            return commandBuffer;
+        if (vkBeginCommandBuffer(commandBuffer, beginInfo) != VK_SUCCESS) {
+            throw new RuntimeException("Failed to begin recording command buffer");
         }
+
+        renderPassInfo.framebuffer(viewport.getSwapChainFramebuffers().get(imageIndex));
+
+        vkCmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        long previousGraphicsPipeline = 0;
+        Mesh previousMesh = null;
+        List<Geometry> geometries = viewport.getGeometries();
+        for (int j = 0; j < geometries.size(); j++) {
+            Geometry geometry = geometries.get(j);
+
+            long graphicsPipeline = geometry.getMaterial().graphicsPipeline;
+            if (graphicsPipeline != previousGraphicsPipeline) {
+                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+                previousGraphicsPipeline = graphicsPipeline;
+            }
+
+            Mesh mesh = geometry.getMesh();
+            if (mesh != previousMesh) {
+                LongBuffer vertexBuffers = tempData.pLong_1.put(0, mesh.getVertexBuffer().buffer);
+                LongBuffer offsets = tempData.pLong_2.put(0, 0l);
+                vkCmdBindVertexBuffers(commandBuffer, 0, vertexBuffers, offsets);
+                vkCmdBindIndexBuffer(commandBuffer, mesh.getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32); // todo: use VK_INDEX_TYPE_UINT16 if short is enough
+                previousMesh = mesh;
+            }
+
+            vkCmdBindDescriptorSets(
+                    commandBuffer,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    geometry.getMaterial().pipelineLayout,
+                    0,
+                    tempData.pLong_1.put(0, geometry.getDescriptorSet(imageIndex)),
+                    null
+            );
+
+            vkCmdDrawIndexed(commandBuffer, mesh.getIndicesLength(), 1, 0, 0, 0);
+        }
+
+        vkCmdEndRenderPass(commandBuffer);
+        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+            throw new RuntimeException("Failed to record command buffer");
+        }
+        return commandBuffer;
     }
 
     public boolean addResourceChangeListener(Consumer<File> listener) {
