@@ -647,12 +647,15 @@ public abstract class VulkanApplication extends Thread {
         vkWaitForFences(device, thisFrame.pFence(tempData.pLong), true, UINT64_MAX);
 
         int vkResult = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, thisFrame.imageAvailableSemaphore(), VK_NULL_HANDLE, tempData.pImageIndex);
-        if (vkResult == VK_ERROR_OUT_OF_DATE_KHR) {
-            logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
+        if (vkResult == VK_ERROR_OUT_OF_DATE_KHR || vkResult == VK_SUBOPTIMAL_KHR) {
+            if (vkResult == VK_ERROR_OUT_OF_DATE_KHR)
+                logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
+            if (vkResult == VK_SUBOPTIMAL_KHR)
+                logV(() -> "VK_SUBOPTIMAL_KHR");
             recreateSwapChain();
             return;
         } else if (vkResult != VK_SUCCESS) {
-            throw new RuntimeException("Cannot get image");
+            throw new RuntimeException("Cannot get image " + vkResult);
         }
 
         final int imageIndex = tempData.pImageIndex.get(0);
