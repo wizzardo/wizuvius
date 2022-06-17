@@ -443,13 +443,13 @@ public abstract class VulkanApplication extends Thread {
     public void addGeometry(Geometry geometry, Viewport viewport) {
         Mesh mesh = geometry.getMesh();
 
+        geometry.getMaterial().prepare(this, viewport);
         if (mesh.getVertexBuffer() == null || mesh.getIndexBuffer() == null) {
-            mesh.setVertexBuffer(Utils.createVertexBuffer(physicalDevice, device, transferQueue, commandPool, mesh.getVertices()));
+            mesh.setVertexBuffer(Utils.createVertexBuffer(physicalDevice, device, transferQueue, commandPool, mesh.getVertices(), geometry.getMaterial().vertexLayout));
             mesh.setIndexBuffer(Utils.createIndexBuffer(physicalDevice, device, transferQueue, commandPool, mesh.getIndices()));
             mesh.setIndicesLength(mesh.getIndices().length);
         }
 
-        geometry.getMaterial().prepare(this, viewport);
         geometry.prepare(this);
 
         viewport.getGeometries().add(geometry);
@@ -461,7 +461,8 @@ public abstract class VulkanApplication extends Thread {
             ByteBuffer fragShaderSPIRV,
             VkExtent2D swapChainExtent,
             long renderPass,
-            long descriptorSetLayout
+            long descriptorSetLayout,
+            Material.VertexLayout vertexLayout
     ) {
         try (MemoryStack stack = stackPush()) {
             long vertShaderModule = ShaderLoader.createShaderModule(device, vertShaderSPIRV);
@@ -487,8 +488,8 @@ public abstract class VulkanApplication extends Thread {
 
             VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkPipelineVertexInputStateCreateInfo.calloc(stack);
             vertexInputInfo.sType(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
-            vertexInputInfo.pVertexBindingDescriptions(Vertex.getBindingDescription());
-            vertexInputInfo.pVertexAttributeDescriptions(Vertex.getAttributeDescriptions());
+            vertexInputInfo.pVertexBindingDescriptions(Vertex.getBindingDescription(stack, vertexLayout));
+            vertexInputInfo.pVertexAttributeDescriptions(Vertex.getAttributeDescriptions(stack, vertexLayout));
 
 
             // ===> ASSEMBLY STAGE <===

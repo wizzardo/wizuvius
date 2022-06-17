@@ -30,40 +30,40 @@ public class Box extends Geometry {
 
         Vertex[] vertices = {
                 // back
-                new Vertex(positions[0], color, new Vector2f(1, 0)),
-                new Vertex(positions[1], color, new Vector2f(0, 0)),
-                new Vertex(positions[2], color, new Vector2f(0, 1)),
-                new Vertex(positions[3], color, new Vector2f(1, 1)),
+                new Vertex(positions[0], color, new Vector2f(1, 0), new Vector3f(0, 0, -1)),
+                new Vertex(positions[1], color, new Vector2f(0, 0), new Vector3f(0, 0, -1)),
+                new Vertex(positions[2], color, new Vector2f(0, 1), new Vector3f(0, 0, -1)),
+                new Vertex(positions[3], color, new Vector2f(1, 1), new Vector3f(0, 0, -1)),
 
                 // right
-                new Vertex(positions[1], color, new Vector2f(1, 0)),
-                new Vertex(positions[4], color, new Vector2f(0, 0)),
-                new Vertex(positions[6], color, new Vector2f(0, 1)),
-                new Vertex(positions[2], color, new Vector2f(1, 1)),
+                new Vertex(positions[1], color, new Vector2f(1, 0), new Vector3f(1, 0, 0)),
+                new Vertex(positions[4], color, new Vector2f(0, 0), new Vector3f(1, 0, 0)),
+                new Vertex(positions[6], color, new Vector2f(0, 1), new Vector3f(1, 0, 0)),
+                new Vertex(positions[2], color, new Vector2f(1, 1), new Vector3f(1, 0, 0)),
 
                 // front
-                new Vertex(positions[4], color, new Vector2f(1, 0)),
-                new Vertex(positions[5], color, new Vector2f(0, 0)),
-                new Vertex(positions[7], color, new Vector2f(0, 1)),
-                new Vertex(positions[6], color, new Vector2f(1, 1)),
+                new Vertex(positions[4], color, new Vector2f(1, 0), new Vector3f(0, 0, 1)),
+                new Vertex(positions[5], color, new Vector2f(0, 0), new Vector3f(0, 0, 1)),
+                new Vertex(positions[7], color, new Vector2f(0, 1), new Vector3f(0, 0, 1)),
+                new Vertex(positions[6], color, new Vector2f(1, 1), new Vector3f(0, 0, 1)),
 
                 // left
-                new Vertex(positions[5], color, new Vector2f(1, 0)),
-                new Vertex(positions[0], color, new Vector2f(0, 0)),
-                new Vertex(positions[3], color, new Vector2f(0, 1)),
-                new Vertex(positions[7], color, new Vector2f(1, 1)),
+                new Vertex(positions[5], color, new Vector2f(1, 0), new Vector3f(-1, 0, 0)),
+                new Vertex(positions[0], color, new Vector2f(0, 0), new Vector3f(-1, 0, 0)),
+                new Vertex(positions[3], color, new Vector2f(0, 1), new Vector3f(-1, 0, 0)),
+                new Vertex(positions[7], color, new Vector2f(1, 1), new Vector3f(-1, 0, 0)),
 
                 // top
-                new Vertex(positions[2], color, new Vector2f(1, 0)),
-                new Vertex(positions[6], color, new Vector2f(0, 0)),
-                new Vertex(positions[7], color, new Vector2f(0, 1)),
-                new Vertex(positions[3], color, new Vector2f(1, 1)),
+                new Vertex(positions[2], color, new Vector2f(1, 0), new Vector3f(0, 1, 0)),
+                new Vertex(positions[6], color, new Vector2f(0, 0), new Vector3f(0, 1, 0)),
+                new Vertex(positions[7], color, new Vector2f(0, 1), new Vector3f(0, 1, 0)),
+                new Vertex(positions[3], color, new Vector2f(1, 1), new Vector3f(0, 1, 0)),
 
                 // bottom
-                new Vertex(positions[0], color, new Vector2f(1, 0)),
-                new Vertex(positions[5], color, new Vector2f(0, 0)),
-                new Vertex(positions[4], color, new Vector2f(0, 1)),
-                new Vertex(positions[1], color, new Vector2f(1, 1)),
+                new Vertex(positions[0], color, new Vector2f(1, 0), new Vector3f(0, -1, 0)),
+                new Vertex(positions[5], color, new Vector2f(0, 0), new Vector3f(0, -1, 0)),
+                new Vertex(positions[4], color, new Vector2f(0, 1), new Vector3f(0, -1, 0)),
+                new Vertex(positions[1], color, new Vector2f(1, 1), new Vector3f(0, -1, 0)),
         };
 
         int[] indices = {

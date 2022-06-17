@@ -11,6 +11,7 @@ public class UnshadedTexture extends Material {
         setVertexShader("shaders/unshaded_texture.vert.spv");
         setFragmentShader("shaders/unshaded_texture.frag.spv");
         setTextureImage(textureImage);
+        vertexLayout = new VertexLayout(VertexLayout.BindingDescription.POSITION, VertexLayout.BindingDescription.TEXTURE_COORDINATES);
     }
 
     @Override

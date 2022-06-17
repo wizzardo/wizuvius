@@ -31,18 +31,29 @@ import java.util.Collection;
 import java.util.List;
 
 public class Utils {
-    static void memcpy(ByteBuffer buffer, Vertex[] vertices) {
-        for (Vertex vertex : vertices) {
-            buffer.putFloat(vertex.pos.x());
-            buffer.putFloat(vertex.pos.y());
-            buffer.putFloat(vertex.pos.z());
-
-            buffer.putFloat(vertex.color.x());
-            buffer.putFloat(vertex.color.y());
-            buffer.putFloat(vertex.color.z());
-
-            buffer.putFloat(vertex.texCoords.x());
-            buffer.putFloat(vertex.texCoords.y());
+    static void memcpy(ByteBuffer buffer, Vertex[] vertices, Material.VertexLayout vertexLayout) {
+        for (int i = 0; i < vertices.length; i++) {
+            Vertex vertex = vertices[i];
+            List<Material.VertexLayout.BindingDescription> locations = vertexLayout.locations;
+            for (int j = 0; j < locations.size(); j++) {
+                Material.VertexLayout.BindingDescription location = locations.get(j);
+                if (location == Material.VertexLayout.BindingDescription.POSITION) {
+                    buffer.putFloat(vertex.pos.x());
+                    buffer.putFloat(vertex.pos.y());
+                    buffer.putFloat(vertex.pos.z());
+                } else if (location == Material.VertexLayout.BindingDescription.COLOR) {
+                    buffer.putFloat(vertex.color.x());
+                    buffer.putFloat(vertex.color.y());
+                    buffer.putFloat(vertex.color.z());
+                } else if (location == Material.VertexLayout.BindingDescription.TEXTURE_COORDINATES) {
+                    buffer.putFloat(vertex.texCoords.x());
+                    buffer.putFloat(vertex.texCoords.y());
+                } else if (location == Material.VertexLayout.BindingDescription.NORMAL) {
+                    buffer.putFloat(vertex.normal.x());
+                    buffer.putFloat(vertex.normal.y());
+                    buffer.putFloat(vertex.normal.z());
+                }
+            }
         }
     }
 
@@ -88,10 +99,11 @@ public class Utils {
             VkDevice device,
             VkQueue queue,
             long commandPool,
-            Vertex[] vertices
+            Vertex[] vertices,
+            Material.VertexLayout vertexLayout
     ) {
         try (MemoryStack stack = stackPush()) {
-            long bufferSize = Vertex.SIZEOF * vertices.length;
+            long bufferSize = (long) vertexLayout.sizeof * vertices.length;
 
             LongBuffer pBuffer = stack.mallocLong(1);
             LongBuffer pBufferMemory = stack.mallocLong(1);
@@ -110,7 +122,7 @@ public class Utils {
             PointerBuffer data = stack.mallocPointer(1);
 
             vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, data);
-            memcpy(data.getByteBuffer(0, (int) bufferSize), vertices);
+            memcpy(data.getByteBuffer(0, (int) bufferSize), vertices, vertexLayout);
             vkUnmapMemory(device, stagingBufferMemory);
 
             VulkanBuffers.createBuffer(

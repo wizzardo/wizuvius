@@ -22,6 +22,7 @@ public class UnshadedColor extends Material {
         setVertexShader("shaders/unshaded_color.vert.spv");
         setFragmentShader("shaders/unshaded_color.frag.spv");
         this.color = color;
+        vertexLayout = new VertexLayout(VertexLayout.BindingDescription.POSITION);
     }
 
     public void setColor(Vector3f color) {

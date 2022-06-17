@@ -7,16 +7,25 @@ import org.lwjgl.vulkan.VkDevice;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
 import static org.lwjgl.vulkan.VK10.*;
 
 public class Material {
+    public static final VertexLayout DEFAULT_VERTEX_LAYOUT = new VertexLayout(
+            VertexLayout.BindingDescription.POSITION,
+            VertexLayout.BindingDescription.COLOR,
+            VertexLayout.BindingDescription.TEXTURE_COORDINATES
+    );
+
     String vertexShader;
     String fragmentShader;
     TextureImage textureImage;
     long textureSampler;
+    protected VertexLayout vertexLayout = DEFAULT_VERTEX_LAYOUT;
 
     public List<VulkanDescriptorSets.DescriptorSetLayoutBinding> bindings;
     public long descriptorSetLayout;
@@ -158,8 +167,48 @@ public class Material {
                 fragShaderSPIRV,
                 viewport.getExtent(),
                 viewport.getRenderPass(),
-                descriptorSetLayout
+                descriptorSetLayout,
+                vertexLayout
         );
         return pipeline;
     }
+
+    public static class VertexLayout {
+        public final List<BindingDescription> locations;
+        public final int sizeof;
+
+        public VertexLayout(BindingDescription... bindingDescriptions) {
+            locations = Collections.unmodifiableList(Arrays.asList(bindingDescriptions));
+            int size = 0;
+            for (int i = 0; i < locations.size(); i++) {
+                BindingDescription location = locations.get(i);
+                size += location.size;
+            }
+            sizeof = size * Float.BYTES;
+        }
+
+        public int offsetOf(int i) {
+            int offset = 0;
+            for (int j = 0; j < i; j++) {
+                offset += locations.get(j).size;
+            }
+            return offset * Float.BYTES;
+        }
+
+        public enum BindingDescription {
+            POSITION(3),
+            NORMAL(3),
+            COLOR(3),
+            TEXTURE_COORDINATES(2),
+            ;
+
+            public final int size;
+
+            BindingDescription(int size) {
+                this.size = size;
+            }
+        }
+    }
+
+
 }
