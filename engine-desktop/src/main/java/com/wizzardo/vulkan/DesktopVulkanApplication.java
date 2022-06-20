@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
+import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -169,7 +170,7 @@ public class DesktopVulkanApplication extends VulkanApplication {
     }
 
     @Override
-    protected InputStream loadAsset(String asset) throws IOException {
+    public InputStream loadAsset(String asset) throws IOException {
         String name = asset.toLowerCase();
         if (name.endsWith(".spv")) {
             name = asset.substring(0, asset.length() - 4);
@@ -197,6 +198,14 @@ public class DesktopVulkanApplication extends VulkanApplication {
             return new ByteArrayInputStream(bytes);
         }
         return this.getClass().getResourceAsStream("/" + asset);
+    }
+
+    public ByteBuffer loadAssetAsByteBuffer(String asset) throws IOException {
+        byte[] bytes = IOTools.bytes(loadAsset(asset));
+        ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
+        buffer.put(bytes);
+        buffer.flip();
+        return buffer;
     }
 
     @Override

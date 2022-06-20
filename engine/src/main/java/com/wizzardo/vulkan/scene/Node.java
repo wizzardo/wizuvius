@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Node extends Spatial {
-    private List<Spatial> children = new ArrayList<>();
+    protected List<Spatial> children = new ArrayList<>();
 
     public List<Spatial> getChildren() {
         return children;
@@ -12,9 +12,14 @@ public class Node extends Spatial {
 
     public void attachChild(Spatial spatial) {
         children.add(spatial);
+        spatial.setParent(this);
     }
 
     public boolean detachChild(Spatial spatial) {
-        return children.remove(spatial);
+        boolean removed = children.remove(spatial);
+        if (removed) {
+            spatial.setParent(null);
+        }
+        return removed;
     }
 }

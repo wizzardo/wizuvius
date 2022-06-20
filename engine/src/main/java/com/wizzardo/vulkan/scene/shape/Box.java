@@ -6,6 +6,7 @@ import com.wizzardo.vulkan.Vertex;
 import com.wizzardo.vulkan.scene.Geometry;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 public class Box extends Geometry {
 
@@ -26,7 +27,7 @@ public class Box extends Geometry {
                 new Vector3f(center).add(-half, half, half),
         };
 
-        Vector3f color = new Vector3f(1, 1, 1);
+        Vector4f color = new Vector4f(1, 1, 1, 1);
 
         Vertex[] vertices = {
                 // back

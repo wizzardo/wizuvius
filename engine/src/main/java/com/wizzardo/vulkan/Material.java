@@ -82,8 +82,10 @@ public class Material {
 
     public void cleanupSwapChainObjects(VkDevice device) {
         try {
-            vkDestroyPipeline(device, graphicsPipeline, null);
-            vkDestroyPipelineLayout(device, pipelineLayout, null);
+            if (graphicsPipeline != 0)
+                vkDestroyPipeline(device, graphicsPipeline, null);
+            if (pipelineLayout != 0)
+                vkDestroyPipelineLayout(device, pipelineLayout, null);
         } finally {
             graphicsPipeline = 0;
             pipelineLayout = 0;

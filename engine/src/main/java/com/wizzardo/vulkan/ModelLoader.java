@@ -1,23 +1,23 @@
 package com.wizzardo.vulkan;
 
-import org.joml.Vector2f;
-import org.joml.Vector2fc;
-import org.joml.Vector3f;
-import org.joml.Vector3fc;
+import com.wizzardo.vulkan.material.predefined.UnshadedColor;
+import com.wizzardo.vulkan.misc.IntArrayBuilder;
+import com.wizzardo.vulkan.scene.Geometry;
+import com.wizzardo.vulkan.scene.Node;
+import com.wizzardo.vulkan.scene.Spatial;
+import org.joml.*;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.assimp.*;
 import org.lwjgl.system.Configuration;
 
-import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
-import static org.lwjgl.assimp.Assimp.aiGetErrorString;
-import static org.lwjgl.assimp.Assimp.aiImportFile;
-import static org.lwjgl.assimp.Assimp.aiImportFileFromMemory;
+import static org.lwjgl.assimp.Assimp.*;
 
 public class ModelLoader {
 
@@ -27,100 +27,312 @@ public class ModelLoader {
         Assimp.aiGetVersionMajor();
         System.out.println("Assimp.aiGetVersionMajor() " + Assimp.aiGetVersionMajor());
         Configuration.DISABLE_FUNCTION_CHECKS.set(false);
+//        for (int i = 0; i < aiGetImportFormatCount(); i++) {
+//            AIImporterDesc importerDesc = aiGetImportFormatDescription(i);
+//            System.out.println(importerDesc.mNameString()+": "+importerDesc.mFileExtensionsString());
+//        }
+
     }
 
-    public static Model loadModel(File file, int flags) {
-        try (AIScene scene = aiImportFile(file.getAbsolutePath(), flags)) {
-            if (scene == null || scene.mRootNode() == null) {
-                throw new RuntimeException("Could not load model: " + aiGetErrorString());
-            }
+//    public static Scene loadModel(File file, int flags) {
+//        try (AIScene scene = aiImportFile(file.getAbsolutePath(), flags)) {
+//            if (scene == null || scene.mRootNode() == null) {
+//                throw new RuntimeException("Could not load model: " + aiGetErrorString());
+//            }
+//
+//            Scene s = new Scene();
+//            processNode(scene.mRootNode(), scene, s);
+//            return s;
+//        }
+//    }
 
-            Model model = new Model();
-            processNode(scene.mRootNode(), scene, model);
-            return model;
-        }
+    public interface AssetLoader {
+        ByteBuffer load(String asset) throws IOException;
     }
 
-    public static Model loadModel(ByteBuffer file, int flags, String hint) {
+    public static Spatial loadModel(ByteBuffer file, int flags, String hint) {
         try (AIScene scene = aiImportFileFromMemory(file, flags, hint)) {
             if (scene == null || scene.mRootNode() == null) {
                 throw new RuntimeException("Could not load model: " + aiGetErrorString());
             }
 
-            Model model = new Model();
-            processNode(scene.mRootNode(), scene, model);
-            return model;
+            Node s = new Node();
+            List<AssimpMaterial> materials = processMaterials(scene);
+            processNode(scene.mRootNode(), scene, s, materials);
+            return s;
         }
     }
 
-    private static void processNode(AINode node, AIScene scene, Model model) {
-        if (node.mMeshes() != null) {
-            processNodeMeshes(scene, node, model);
+//    public static Scene loadModel(String path, int flags, AssetLoader assetLoader) {
+//        AIFileIO fileIO = AIFileIO.create();
+//
+//        try {
+//            Map<String, ByteBuffer> loaded = new HashMap<>();
+//            fileIO.OpenProc((pFileIO, fileName, openMode) -> {
+//                        ByteBuffer data;
+//                        String fileNameUtf8 = memUTF8(fileName);
+//                        try {
+//                            ByteBuffer byteBuffer = loaded.get(fileNameUtf8);
+//                            if (byteBuffer != null) {
+//                                data = byteBuffer.slice();
+//                            } else {
+//                                System.out.println("trying to open file " + fileNameUtf8);
+//                                data = assetLoader.load(fileNameUtf8);
+//                                loaded.put(fileNameUtf8, data.slice());
+//                            }
+//                        } catch (IOException e) {
+//                            throw new RuntimeException("Could not open file: " + fileNameUtf8);
+//                        }
+//
+//                        return AIFile.create()
+//                                .ReadProc((pFile, pBuffer, size, count) -> {
+//                                    long max = Math.min(data.remaining(), size * count);
+//                                    System.out.println(fileNameUtf8 + ".read " + max);
+//                                    memCopy(memAddress(data) + data.position(), pBuffer, max);
+//                                    data.position((int) (data.position() + max));
+//                                    return max;
+//                                })
+//                                .TellProc(pFile -> data.position())
+//                                .SeekProc((pFile, offset, origin) -> {
+//                                    if (origin == aiOrigin_CUR) {
+//                                        data.position(data.position() + (int) offset);
+//                                    } else if (origin == aiOrigin_SET) {
+//                                        data.position((int) offset);
+//                                    } else if (origin == aiOrigin_END) {
+//                                        data.position(data.limit() + (int) offset);
+//                                    }
+//                                    System.out.println(fileNameUtf8 + ".seek " + data.position());
+//                                    return 0;
+//                                })
+//                                .FileSizeProc(pFile -> data.limit())
+//                                .address();
+//                    })
+//                    .CloseProc((pFileIO, pFile) -> {
+//                        AIFile aiFile = AIFile.create(pFile);
+//
+//                        aiFile.ReadProc().free();
+//                        aiFile.SeekProc().free();
+//                        aiFile.FileSizeProc().free();
+//                        aiFile.TellProc().free();
+//                        aiFile.free();
+//                    });
+//
+//            try (AIScene scene = aiImportFileEx(path, flags, fileIO)) {
+//                if (scene == null || scene.mRootNode() == null) {
+//                    throw new RuntimeException("Could not load model: " + aiGetErrorString());
+//                }
+//
+//                Scene s = new Scene();
+//                List<AssimpMaterial> materials = processMaterials(scene);
+//                processNode(scene.mRootNode(), scene, s, materials);
+//                return s;
+//            }
+//
+//        } finally {
+//            fileIO.OpenProc().free();
+//            fileIO.CloseProc().free();
+//            fileIO.free();
+//        }
+//    }
+
+    private static void processNode(AINode node, AIScene scene, Node s, List<AssimpMaterial> materials) {
+        s.setName(node.mName().dataString());
+        AIMatrix4x4 transformation = node.mTransformation();
+        Matrix4f matrix4f = new Matrix4f(
+                transformation.a1(), transformation.b1(), transformation.c1(), transformation.d1(),
+                transformation.a2(), transformation.b2(), transformation.c2(), transformation.d2(),
+                transformation.a3(), transformation.b3(), transformation.c3(), transformation.d3(),
+                transformation.a4(), transformation.b4(), transformation.c4(), transformation.d4()
+        );
+        matrix4f.getTranslation(s.getLocalTransform().getTranslation());
+        matrix4f.getScale(s.getLocalTransform().getScale());
+        matrix4f.getUnnormalizedRotation(s.getLocalTransform().getRotation());
+
+        if (node.mNumMeshes() != 0) {
+            processNodeMeshes(scene, node, s, materials);
         }
 
         if (node.mChildren() != null) {
             PointerBuffer children = node.mChildren();
             for (int i = 0; i < node.mNumChildren(); i++) {
-                processNode(AINode.create(children.get(i)), scene, model);
+                AINode child = AINode.create(children.get(i));
+                Node nodeList = new Node();
+                processNode(child, scene, nodeList, materials);
+                s.attachChild(nodeList);
             }
         }
 
     }
 
-    private static void processNodeMeshes(AIScene scene, AINode node, Model model) {
-        PointerBuffer pMeshes = scene.mMeshes();
+    private static void processNodeMeshes(AIScene scene, AINode node, Node n, List<AssimpMaterial> materials) {
         IntBuffer meshIndices = node.mMeshes();
         for (int i = 0; i < meshIndices.capacity(); i++) {
-            AIMesh mesh = AIMesh.create(pMeshes.get(meshIndices.get(i)));
-            processMesh(scene, mesh, model);
+            processMesh(scene, meshIndices.get(i), n, materials);
         }
     }
 
-    private static void processMesh(AIScene scene, AIMesh mesh, Model model) {
-        processPositions(mesh, model.positions);
-        processTexCoords(mesh, model.texCoords);
-        processIndices(mesh, model.indices);
-    }
+    private static List<AssimpMaterial> processMaterials(AIScene scene) {
+        PointerBuffer pMaterials = scene.mMaterials();
+        int numMaterials = scene.mNumMaterials();
+        ArrayList<AssimpMaterial> materials = new ArrayList<>(numMaterials);
+        AIColor4D colour = AIColor4D.create();
+        AIString string = AIString.create();
+        float[] floats = new float[4];
+        int[] ints = new int[4];
+        int[] arraysLimits = new int[]{4};
 
-    private static void processPositions(AIMesh mesh, List<Vector3fc> positions) {
-        AIVector3D.Buffer vertices = requireNonNull(mesh.mVertices());
-        for (int i = 0; i < vertices.capacity(); i++) {
-            AIVector3D position = vertices.get(i);
-            positions.add(new Vector3f(position.x(), position.y(), position.z()));
+        for (int i = 0; i < numMaterials; i++) {
+            AIMaterial material = AIMaterial.create(pMaterials.get(i));
+            AssimpMaterial m = new AssimpMaterial();
+            materials.add(m);
+//            int numProperties = material.mNumProperties();
+//            PointerBuffer pMaterialProperties = material.mProperties();
+//            for (int j = 0; j < numProperties; j++) {
+//                AIMaterialProperty materialProperty = AIMaterialProperty.create(pMaterialProperties.get(j));
+//                String key = materialProperty.mKey().dataString();
+//                Object value = null;
+//
+//                System.out.println(key + ": " + materialProperty.mType() + "    " + value);
+//            }
+//            System.out.println();
+            int result = aiGetMaterialColor(material, AI_MATKEY_COLOR_AMBIENT, aiTextureType_NONE, 0, colour);
+            if (result == 0) {
+                m.ambientColor = new Vector4f(colour.r(), colour.g(), colour.b(), colour.a());
+            }
+            result = aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, aiTextureType_NONE, 0, colour);
+            if (result == 0) {
+                m.diffuseColor = new Vector4f(colour.r(), colour.g(), colour.b(), colour.a());
+            }
+            result = aiGetMaterialColor(material, AI_MATKEY_COLOR_EMISSIVE, aiTextureType_NONE, 0, colour);
+            if (result == 0) {
+                m.emissiveColor = new Vector4f(colour.r(), colour.g(), colour.b(), colour.a());
+            }
+            result = aiGetMaterialColor(material, AI_MATKEY_COLOR_REFLECTIVE, aiTextureType_NONE, 0, colour);
+            if (result == 0) {
+                m.reflectiveColor = new Vector4f(colour.r(), colour.g(), colour.b(), colour.a());
+            }
+            result = aiGetMaterialColor(material, AI_MATKEY_COLOR_SPECULAR, aiTextureType_NONE, 0, colour);
+            if (result == 0) {
+                m.specularColor = new Vector4f(colour.r(), colour.g(), colour.b(), colour.a());
+            }
+            result = aiGetMaterialColor(material, AI_MATKEY_COLOR_TRANSPARENT, aiTextureType_NONE, 0, colour);
+            if (result == 0) {
+                m.transparentColor = new Vector4f(colour.r(), colour.g(), colour.b(), colour.a());
+            }
+            result = aiGetMaterialString(material, AI_MATKEY_NAME, aiTextureType_NONE, 0, string);
+            if (result == 0) {
+                m.name = string.dataString();
+            }
+            result = aiGetMaterialString(material, AI_MATKEY_GLTF_ALPHAMODE, aiTextureType_NONE, 0, string);
+            if (result == 0) {
+                m.alphamode = string.dataString();
+            }
+
+            arraysLimits[0] = floats.length;
+            result = aiGetMaterialFloatArray(material, AI_MATKEY_SHININESS, aiTextureType_NONE, 0, floats, arraysLimits);
+            if (result == 0) {
+                m.shininess = floats[0];
+            }
+            arraysLimits[0] = floats.length;
+            result = aiGetMaterialFloatArray(material, AI_MATKEY_METALLIC_FACTOR, aiTextureType_NONE, 0, floats, arraysLimits);
+            if (result == 0) {
+                m.metallicFactor = floats[0];
+            }
+            arraysLimits[0] = floats.length;
+            result = aiGetMaterialFloatArray(material, AI_MATKEY_ROUGHNESS_FACTOR, aiTextureType_NONE, 0, floats, arraysLimits);
+            if (result == 0) {
+                m.roughnessFactor = floats[0];
+            }
+            arraysLimits[0] = floats.length;
+            result = aiGetMaterialFloatArray(material, AI_MATKEY_OPACITY, aiTextureType_NONE, 0, floats, arraysLimits);
+            if (result == 0) {
+                m.opacity = floats[0];
+            }
+            arraysLimits[0] = floats.length;
+            result = aiGetMaterialFloatArray(material, AI_MATKEY_GLTF_ALPHACUTOFF, aiTextureType_NONE, 0, floats, arraysLimits);
+            if (result == 0) {
+                m.alphacutoff = floats[0];
+            }
+            arraysLimits[0] = floats.length;
+            result = aiGetMaterialIntegerArray(material, AI_MATKEY_SHADING_MODEL, aiTextureType_NONE, 0, ints, arraysLimits);
+            if (result == 0) {
+                m.shadingModel = ints[0];
+            }
+
         }
+        return materials;
     }
 
-    private static void processTexCoords(AIMesh mesh, List<Vector2fc> texCoords) {
-        AIVector3D.Buffer aiTexCoords = requireNonNull(mesh.mTextureCoords(0));
-        for (int i = 0; i < aiTexCoords.capacity(); i++) {
-            AIVector3D coords = aiTexCoords.get(i);
-            texCoords.add(new Vector2f(coords.x(), coords.y()));
+    private static void processMesh(AIScene scene, int meshIndex, Node model, List<AssimpMaterial> materials) {
+
+        PointerBuffer pMeshes = scene.mMeshes();
+        AIMesh mesh = AIMesh.create(pMeshes.get(meshIndex));
+
+        AssimpMaterial assimpMaterial = materials.get(mesh.mMaterialIndex());
+
+        Geometry geometry = new Geometry(
+                mesh.mName().dataString(),
+                readMesh(mesh),
+                new UnshadedColor(new Vector3f(assimpMaterial.diffuseColor.x, assimpMaterial.diffuseColor.y, assimpMaterial.diffuseColor.z))
+        );
+        model.attachChild(geometry);
+    }
+
+    private static Mesh readMesh(AIMesh mesh) {
+        AIVector3D.Buffer positions = requireNonNull(mesh.mVertices());
+        AIVector3D.Buffer normals = mesh.mNormals();
+        AIColor4D.Buffer colors = mesh.mColors(0);
+        AIVector3D.Buffer textureCoords = mesh.mTextureCoords(0);
+
+//        AIVector3D tempVector3D = AIVector3D.create();
+//        AIColor4D tempColor = AIColor4D.create();
+
+        Vertex[] vertices = new Vertex[positions.capacity()];
+        for (int i = 0; i < vertices.length; i++) {
+            AIVector3D position = positions.get(i);
+            AIColor4D color = colors != null ? colors.get(i) : null;
+            AIVector3D texCoords = textureCoords != null ? textureCoords.get(i) : null;
+            AIVector3D normal = normals != null ? normals.get(i) : null;
+
+            Vertex vertex = new Vertex(
+                    new Vector3f(position.x(), position.y(), position.z()),
+                    color != null ? new Vector4f(color.r(), color.g(), color.b(), color.a()) : null,
+                    texCoords != null ? new Vector2f(texCoords.x(), texCoords.y()) : null,
+                    normal != null ? new Vector3f(normal.x(), normal.y(), normal.z()) : null
+            );
+            vertices[i] = vertex;
         }
-    }
 
-    private static void processIndices(AIMesh mesh, List<Integer> indices) {
+        IntArrayBuilder indecies = new IntArrayBuilder((int) (vertices.length * 1.5));
+
         AIFace.Buffer aiFaces = mesh.mFaces();
         for (int i = 0; i < mesh.mNumFaces(); i++) {
             AIFace face = aiFaces.get(i);
             IntBuffer pIndices = face.mIndices();
             for (int j = 0; j < face.mNumIndices(); j++) {
-                indices.add(pIndices.get(j));
+                indecies.append(pIndices.get(j));
             }
         }
+
+        return new Mesh(vertices, indecies.toIntArray(true));
     }
 
-    public static class Model {
 
-        public final List<Vector3fc> positions;
-        public final List<Vector2fc> texCoords;
-        public final List<Integer> indices;
-
-        public Model() {
-            this.positions = new ArrayList<>();
-            this.texCoords = new ArrayList<>();
-            this.indices = new ArrayList<>();
-        }
+    public static class AssimpMaterial {
+        public String name;
+        public Vector4f ambientColor;
+        public Vector4f diffuseColor;
+        public Vector4f emissiveColor;
+        public Vector4f reflectiveColor;
+        public Vector4f specularColor;
+        public Vector4f transparentColor;
+        public String alphamode;
+        public float shininess;
+        public float metallicFactor;
+        public float roughnessFactor;
+        public float opacity;
+        public float alphacutoff;
+        public int shadingModel;
     }
-
 
 }

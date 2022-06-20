@@ -1,7 +1,5 @@
 package com.wizzardo.vulkan;
 
-import static com.wizzardo.vulkan.Matrices.EMPTY_MATRIX_4F;
-import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.vkDestroyFramebuffer;
 import static org.lwjgl.vulkan.VK10.vkDestroyRenderPass;
 import static org.lwjgl.vulkan.VK10.vkFreeCommandBuffers;
@@ -11,9 +9,10 @@ import static org.lwjgl.vulkan.VK10.vkUnmapMemory;
 import com.wizzardo.vulkan.scene.Geometry;
 import com.wizzardo.vulkan.scene.Node;
 
+import com.wizzardo.vulkan.scene.Spatial;
+import org.joml.Matrix4f;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryHelpers;
-import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkDevice;
@@ -102,13 +101,26 @@ public class Viewport {
         this.offset = offset;
     }
 
-
     protected void cleanupSwapChain(VkDevice device) {
         swapChainFramebuffers.forEach(framebuffer -> vkDestroyFramebuffer(device, framebuffer, null));
         vkDestroyRenderPass(device, renderPass, null);
 
         for (Geometry preparedGeometry : geometries) {
             preparedGeometry.cleanupSwapChainObjects(device);
+        }
+
+        cleanupSwapChain(device, scene);
+    }
+
+    protected void cleanupSwapChain(VkDevice device, Node node) {
+        List<Spatial> children = node.getChildren();
+        for (int i = 0; i < children.size(); i++) {
+            Spatial spatial = children.get(i);
+            if (spatial instanceof Geometry) {
+                ((Geometry) spatial).cleanupSwapChainObjects(device);
+            } else if (spatial instanceof Node) {
+                cleanupSwapChain(device, (Node) spatial);
+            }
         }
     }
 
@@ -117,41 +129,94 @@ public class Viewport {
             preparedGeometry.cleanup(device);
         }
 
+        cleanup(device, scene);
+
         vkFreeCommandBuffers(device, commandPool, Utils.asPointerBuffer(commandBuffers));
     }
 
+
+    protected void cleanup(VkDevice device, Node node) {
+        List<Spatial> children = node.getChildren();
+        for (int i = 0; i < children.size(); i++) {
+            Spatial spatial = children.get(i);
+            if (spatial instanceof Geometry) {
+                ((Geometry) spatial).cleanup(device);
+            } else if (spatial instanceof Node) {
+                cleanup(device, (Node) spatial);
+            }
+        }
+    }
+
     public void updateModelUniformBuffers(VulkanApplication app, int imageIndex, PointerBuffer data) {
-        if (geometries.isEmpty())
-            return;
+//        if (geometries.isEmpty())
+//            return;
 
         camera.updateViewMatrix();
+
+
         for (int i = 0; i < geometries.size(); i++) {
             Geometry geometry = geometries.get(i);
-            UniformBuffers uniformBuffers = geometry.getUniformBuffers();
-            updateModelUniformBuffer(app, uniformBuffers, imageIndex, geometry.getLocalTransform(), data, byteBufferPointer);
+            updateModelUniformBuffer(app, imageIndex, geometry, data, byteBufferPointer);
         }
+
+        updateModelUniformBuffers(app, imageIndex, data, scene);
+    }
+
+    protected void updateModelUniformBuffers(VulkanApplication app, int imageIndex, PointerBuffer data, Node node) {
+        List<Spatial> children = node.getChildren();
+        for (int i = 0; i < children.size(); i++) {
+            Spatial spatial = children.get(i);
+            if (spatial instanceof Geometry) {
+                updateModelUniformBuffer(app, imageIndex, (Geometry) spatial, data, byteBufferPointer);
+            } else if (spatial instanceof Node) {
+                updateModelUniformBuffers(app, imageIndex, data, (Node) spatial);
+            }
+        }
+    }
+
+    protected void updateFromParent(Spatial parent, Matrix4f model) {
+        if (parent == null)
+            return;
+
+        updateFromParent(parent.getParent(), model);
+
+        Transform transform = parent.getLocalTransform();
+        model.translate(transform.getTranslation());
+        model.rotate(transform.getRotation());
+        model.scale(transform.getScale());
+
     }
 
     protected void updateModelUniformBuffer(
             VulkanApplication app,
-            UniformBuffers uniformBuffers,
             int index,
-            Transform transform,
+            Geometry geometry,
             PointerBuffer data,
             ByteBuffer byteBuffer
     ) {
+        if (!geometry.isPrepared()) {
+            geometry.getMaterial().prepare(app, this);
+            geometry.getMesh().prepare(app, geometry.getMaterial().vertexLayout);
+            geometry.prepare(app);
+        }
+
+        Transform transform = geometry.getLocalTransform();
+        UniformBuffers uniformBuffers = geometry.getUniformBuffers();
         UniformBufferObject ubo = uniformBuffers.uniformBufferObject;
-        ubo.model.set(EMPTY_MATRIX_4F);
-        ubo.model.translate(transform.getTranslation());
-        ubo.model.scale(transform.getScale());
-        ubo.model.rotate(transform.getRotation());
+        Matrix4f model = ubo.model;
+        model.identity();
+
+        updateFromParent(geometry.getParent(), model);
+        model.translate(transform.getTranslation());
+        model.rotate(transform.getRotation());
+        model.scale(transform.getScale());
 
         long memoryAddress = uniformBuffers.uniformBuffersMemory.get(index);
 
         vkMapMemory(app.getDevice(), memoryAddress, 0, UniformBufferObject.SIZEOF, 0, data);
 
         MemoryHelpers.remapByteBuffer(byteBuffer, data.get(0), UniformBufferObject.SIZEOF);
-        Utils.memcpy(byteBuffer, ubo.model, camera.view, camera.projection);
+        Utils.memcpy(byteBuffer, model, camera.view, camera.projection);
         vkUnmapMemory(app.getDevice(), memoryAddress);
     }
 }

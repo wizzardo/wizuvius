@@ -10,11 +10,17 @@ public class Geometry extends Spatial {
     protected Material material;
     protected UniformBuffers uniformBuffers;
     protected List<Long> descriptorSets;
+    protected boolean prepared = false;
 
     public Geometry() {
     }
 
     public Geometry(Mesh mesh, Material material) {
+        this(null, mesh, material);
+    }
+
+    public Geometry(String name, Mesh mesh, Material material) {
+        this.name = name;
         this.mesh = mesh;
         this.material = material;
     }
@@ -36,13 +42,17 @@ public class Geometry extends Spatial {
     }
 
     public void cleanup(VkDevice device) {
-        mesh.cleanup(device);
+        if (mesh != null)
+            mesh.cleanup(device);
     }
 
     public void cleanupSwapChainObjects(VkDevice device) {
         try {
-            uniformBuffers.cleanup(device);
-            material.cleanupSwapChainObjects(device);
+            if (uniformBuffers != null)
+                uniformBuffers.cleanup(device);
+            if (material != null)
+                material.cleanupSwapChainObjects(device);
+            prepared = false;
         } finally {
             uniformBuffers = null;
             descriptorSets = null;
@@ -79,5 +89,10 @@ public class Geometry extends Spatial {
 
             descriptorSets = descriptorSetsBuilder.build(application.getDevice(), application.getSwapChainImages(), material.descriptorSetLayout, application.getDescriptorPool());
         }
+        prepared = true;
+    }
+
+    public boolean isPrepared() {
+        return prepared;
     }
 }

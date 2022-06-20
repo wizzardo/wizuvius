@@ -5,6 +5,7 @@ import com.wizzardo.vulkan.Transform;
 public class Spatial {
     protected Transform localTransform = new Transform();
     protected String name;
+    protected Node parent;
 
     public Spatial() {
     }
@@ -27,5 +28,13 @@ public class Spatial {
 
     public void setLocalTransform(Transform transform) {
         localTransform = transform;
+    }
+
+    protected void setParent(Node parent) {
+        this.parent = parent;
+    }
+
+    public Node getParent() {
+        return parent;
     }
 }

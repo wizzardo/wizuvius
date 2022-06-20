@@ -21,6 +21,8 @@ import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.input.InputsManager;
 import com.wizzardo.vulkan.scene.Geometry;
 
+import com.wizzardo.vulkan.scene.Node;
+import com.wizzardo.vulkan.scene.Spatial;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.PointerBuffer;
@@ -308,7 +310,7 @@ public abstract class VulkanApplication extends Thread {
                 45,
                 (float) mainViewport.extent.width() / (float) mainViewport.extent.height(),
                 0.1f,
-                10f
+                100f
         );
         System.out.println(width + "x" + height);
 
@@ -441,15 +443,8 @@ public abstract class VulkanApplication extends Thread {
     }
 
     public void addGeometry(Geometry geometry, Viewport viewport) {
-        Mesh mesh = geometry.getMesh();
-
         geometry.getMaterial().prepare(this, viewport);
-        if (mesh.getVertexBuffer() == null || mesh.getIndexBuffer() == null) {
-            mesh.setVertexBuffer(Utils.createVertexBuffer(physicalDevice, device, transferQueue, commandPool, mesh.getVertices(), geometry.getMaterial().vertexLayout));
-            mesh.setIndexBuffer(Utils.createIndexBuffer(physicalDevice, device, transferQueue, commandPool, mesh.getIndices()));
-            mesh.setIndicesLength(mesh.getIndices().length);
-        }
-
+        geometry.getMesh().prepare(this, geometry.getMaterial().vertexLayout);
         geometry.prepare(this);
 
         viewport.getGeometries().add(geometry);
@@ -724,12 +719,12 @@ public abstract class VulkanApplication extends Thread {
 
         currentFrame = (currentFrame + 1) % syncObjects.getFramesCount();
 
-        fpsCounter++;
-        if (time - previousPrintFps >= 1_000_000_000) {
-            System.out.println("fps: " + fpsCounter);
-            fpsCounter = 0;
-            previousPrintFps = time;
-        }
+//        fpsCounter++;
+//        if (time - previousPrintFps >= 1_000_000_000) {
+//            System.out.println("fps: " + fpsCounter);
+//            fpsCounter = 0;
+//            previousPrintFps = time;
+//        }
         printAllocation("drawFrame end");
     }
 
@@ -762,6 +757,9 @@ public abstract class VulkanApplication extends Thread {
             pLong_2 = stack.longs(0);
         }
     }
+
+    protected Mesh recordCommandPreviousMesh = null;
+    protected long recordCommandPreviousGraphicsPipeline = 0L;
 
     protected VkCommandBuffer recordCommands(Viewport viewport, int imageIndex, CommandBufferTempData tempData) {
         VkCommandBuffer commandBuffer = viewport.getCommandBuffers().get(imageIndex);
@@ -797,44 +795,63 @@ public abstract class VulkanApplication extends Thread {
 
         vkCmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        long previousGraphicsPipeline = 0;
-        Mesh previousMesh = null;
         List<Geometry> geometries = viewport.getGeometries();
         for (int j = 0; j < geometries.size(); j++) {
             Geometry geometry = geometries.get(j);
-
-            long graphicsPipeline = geometry.getMaterial().graphicsPipeline;
-            if (graphicsPipeline != previousGraphicsPipeline) {
-                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-                previousGraphicsPipeline = graphicsPipeline;
-            }
-
-            Mesh mesh = geometry.getMesh();
-            if (mesh != previousMesh) {
-                LongBuffer vertexBuffers = tempData.pLong_1.put(0, mesh.getVertexBuffer().buffer);
-                LongBuffer offsets = tempData.pLong_2.put(0, 0l);
-                vkCmdBindVertexBuffers(commandBuffer, 0, vertexBuffers, offsets);
-                vkCmdBindIndexBuffer(commandBuffer, mesh.getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32); // todo: use VK_INDEX_TYPE_UINT16 if short is enough
-                previousMesh = mesh;
-            }
-
-            vkCmdBindDescriptorSets(
-                    commandBuffer,
-                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    geometry.getMaterial().pipelineLayout,
-                    0,
-                    tempData.pLong_1.put(0, geometry.getDescriptorSet(imageIndex)),
-                    null
-            );
-
-            vkCmdDrawIndexed(commandBuffer, mesh.getIndicesLength(), 1, 0, 0, 0);
+            recordGeometryDraw(geometry, commandBuffer, tempData, imageIndex);
         }
+
+        recordGeometryDraw(viewport.getScene(), commandBuffer, tempData, imageIndex);
+        recordCommandPreviousMesh = null;
+        recordCommandPreviousGraphicsPipeline = 0L;
 
         vkCmdEndRenderPass(commandBuffer);
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw new RuntimeException("Failed to record command buffer");
         }
         return commandBuffer;
+    }
+
+    protected void recordGeometryDraw(Node node, VkCommandBuffer commandBuffer, CommandBufferTempData tempData, int imageIndex){
+        List<Spatial> children = node.getChildren();
+        for (int i = 0; i < children.size(); i++) {
+            Spatial spatial = children.get(i);
+            if (spatial instanceof Geometry) {
+                recordGeometryDraw((Geometry) spatial, commandBuffer, tempData, imageIndex);
+            } else if (spatial instanceof Node) {
+                recordGeometryDraw((Node) spatial, commandBuffer, tempData, imageIndex);
+            }
+        }
+    }
+    protected void recordGeometryDraw(Geometry geometry, VkCommandBuffer commandBuffer, CommandBufferTempData tempData, int imageIndex) {
+        if (!geometry.isPrepared())
+            return;
+
+        long graphicsPipeline = geometry.getMaterial().graphicsPipeline;
+        if (graphicsPipeline != recordCommandPreviousGraphicsPipeline) {
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+            recordCommandPreviousGraphicsPipeline = graphicsPipeline;
+        }
+
+        Mesh mesh = geometry.getMesh();
+        if (mesh != recordCommandPreviousMesh) {
+            LongBuffer vertexBuffers = tempData.pLong_1.put(0, mesh.getVertexBuffer().buffer);
+            LongBuffer offsets = tempData.pLong_2.put(0, 0l);
+            vkCmdBindVertexBuffers(commandBuffer, 0, vertexBuffers, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, mesh.getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32); // todo: use VK_INDEX_TYPE_UINT16 if short is enough
+            recordCommandPreviousMesh = mesh;
+        }
+
+        vkCmdBindDescriptorSets(
+                commandBuffer,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                geometry.getMaterial().pipelineLayout,
+                0,
+                tempData.pLong_1.put(0, geometry.getDescriptorSet(imageIndex)),
+                null
+        );
+
+        vkCmdDrawIndexed(commandBuffer, mesh.getIndicesLength(), 1, 0, 0, 0);
     }
 
     public boolean addResourceChangeListener(Consumer<File> listener) {

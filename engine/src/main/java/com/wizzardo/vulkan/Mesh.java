@@ -57,12 +57,22 @@ public class Mesh {
 
     public void cleanup(VkDevice device) {
         try {
-            indexBuffer.cleanup(device);
-            vertexBuffer.cleanup(device);
+            if (indexBuffer != null)
+                indexBuffer.cleanup(device);
+            if (vertexBuffer != null)
+                vertexBuffer.cleanup(device);
         } finally {
             indexBuffer = null;
             vertexBuffer = null;
             indicesLength = 0;
+        }
+    }
+
+    public void prepare(VulkanApplication app, Material.VertexLayout vertexLayout) {
+        if (vertexBuffer == null || indexBuffer == null) {
+            vertexBuffer = Utils.createVertexBuffer(app.physicalDevice, app.device, app.transferQueue, app.commandPool, getVertices(), vertexLayout);
+            indexBuffer = Utils.createIndexBuffer(app.physicalDevice, app.device, app.transferQueue, app.commandPool, getIndices());
+            setIndicesLength(getIndices().length);
         }
     }
 }
