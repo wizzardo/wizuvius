@@ -10,14 +10,19 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.assimp.*;
 import org.lwjgl.system.Configuration;
 
+import java.io.File;
 import java.io.IOException;
+import java.lang.Math;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 import static org.lwjgl.assimp.Assimp.*;
+import static org.lwjgl.system.MemoryUtil.*;
 
 public class ModelLoader {
 
@@ -31,20 +36,26 @@ public class ModelLoader {
 //            AIImporterDesc importerDesc = aiGetImportFormatDescription(i);
 //            System.out.println(importerDesc.mNameString()+": "+importerDesc.mFileExtensionsString());
 //        }
-
+        AILogStream logStream = AILogStream.create();
+        logStream.callback((message, user) -> {
+            String s = memUTF8(message);
+            System.out.println("assimp: " + s);
+        });
+        Assimp.aiAttachLogStream(logStream);
     }
 
-//    public static Scene loadModel(File file, int flags) {
-//        try (AIScene scene = aiImportFile(file.getAbsolutePath(), flags)) {
-//            if (scene == null || scene.mRootNode() == null) {
-//                throw new RuntimeException("Could not load model: " + aiGetErrorString());
-//            }
-//
-//            Scene s = new Scene();
-//            processNode(scene.mRootNode(), scene, s);
-//            return s;
-//        }
-//    }
+    public static Spatial loadModel(File file, int flags) {
+        try (AIScene scene = aiImportFile(file.getAbsolutePath(), flags)) {
+            if (scene == null || scene.mRootNode() == null) {
+                throw new RuntimeException("Could not load model: " + aiGetErrorString());
+            }
+
+            Node s = new Node();
+            List<AssimpMaterial> materials = processMaterials(scene);
+            processNode(scene.mRootNode(), scene, s, materials);
+            return s;
+        }
+    }
 
     public interface AssetLoader {
         ByteBuffer load(String asset) throws IOException;
@@ -63,77 +74,82 @@ public class ModelLoader {
         }
     }
 
-//    public static Scene loadModel(String path, int flags, AssetLoader assetLoader) {
-//        AIFileIO fileIO = AIFileIO.create();
-//
-//        try {
-//            Map<String, ByteBuffer> loaded = new HashMap<>();
-//            fileIO.OpenProc((pFileIO, fileName, openMode) -> {
-//                        ByteBuffer data;
-//                        String fileNameUtf8 = memUTF8(fileName);
-//                        try {
-//                            ByteBuffer byteBuffer = loaded.get(fileNameUtf8);
-//                            if (byteBuffer != null) {
-//                                data = byteBuffer.slice();
-//                            } else {
-//                                System.out.println("trying to open file " + fileNameUtf8);
-//                                data = assetLoader.load(fileNameUtf8);
-//                                loaded.put(fileNameUtf8, data.slice());
-//                            }
-//                        } catch (IOException e) {
-//                            throw new RuntimeException("Could not open file: " + fileNameUtf8);
-//                        }
-//
-//                        return AIFile.create()
-//                                .ReadProc((pFile, pBuffer, size, count) -> {
-//                                    long max = Math.min(data.remaining(), size * count);
-//                                    System.out.println(fileNameUtf8 + ".read " + max);
-//                                    memCopy(memAddress(data) + data.position(), pBuffer, max);
-//                                    data.position((int) (data.position() + max));
-//                                    return max;
-//                                })
-//                                .TellProc(pFile -> data.position())
-//                                .SeekProc((pFile, offset, origin) -> {
-//                                    if (origin == aiOrigin_CUR) {
-//                                        data.position(data.position() + (int) offset);
-//                                    } else if (origin == aiOrigin_SET) {
-//                                        data.position((int) offset);
-//                                    } else if (origin == aiOrigin_END) {
-//                                        data.position(data.limit() + (int) offset);
-//                                    }
-//                                    System.out.println(fileNameUtf8 + ".seek " + data.position());
-//                                    return 0;
-//                                })
-//                                .FileSizeProc(pFile -> data.limit())
-//                                .address();
-//                    })
-//                    .CloseProc((pFileIO, pFile) -> {
-//                        AIFile aiFile = AIFile.create(pFile);
-//
-//                        aiFile.ReadProc().free();
-//                        aiFile.SeekProc().free();
-//                        aiFile.FileSizeProc().free();
-//                        aiFile.TellProc().free();
-//                        aiFile.free();
-//                    });
-//
-//            try (AIScene scene = aiImportFileEx(path, flags, fileIO)) {
-//                if (scene == null || scene.mRootNode() == null) {
-//                    throw new RuntimeException("Could not load model: " + aiGetErrorString());
-//                }
-//
-//                Scene s = new Scene();
-//                List<AssimpMaterial> materials = processMaterials(scene);
-//                processNode(scene.mRootNode(), scene, s, materials);
-//                return s;
-//            }
-//
-//        } finally {
-//            fileIO.OpenProc().free();
-//            fileIO.CloseProc().free();
-//            fileIO.free();
-//        }
-//    }
+    public static Spatial loadModel(String path, int flags, AssetLoader assetLoader) {
+        AIFileIO fileIO = AIFileIO.create();
+
+        try {
+            Map<String, ByteBuffer> loaded = new HashMap<>();
+            fileIO.OpenProc((pFileIO, fileName, openMode) -> {
+                        ByteBuffer data;
+                        String fileNameUtf8 = memUTF8(fileName);
+                        try {
+                            ByteBuffer byteBuffer = loaded.get(fileNameUtf8);
+                            if (byteBuffer != null) {
+                                data = byteBuffer.slice();
+                            } else {
+                                System.out.println("trying to open file " + fileNameUtf8);
+                                data = assetLoader.load(fileNameUtf8);
+                                loaded.put(fileNameUtf8, data.slice());
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException("Could not open file: " + fileNameUtf8);
+                        }
+
+                        return AIFile.create()
+                                .ReadProc((pFile, pBuffer, size, count) -> {
+                                    long max = Math.min(data.remaining(), size * count);
+                                    if (max != size * count && max % size != 0) {
+                                        max -= max % size;
+                                    }
+                                    System.out.println(fileNameUtf8 + ".read " + max + "  " + size + "  " + count);
+                                    if (data.position() != 0 || max != 200 || fileNameUtf8.toLowerCase().endsWith("obj")) {
+                                        memCopy(memAddress(data) + data.position(), pBuffer, max);
+                                    }
+                                    data.position((int) (data.position() + max));
+                                    return max / size;
+                                })
+                                .TellProc(pFile -> data.position())
+                                .SeekProc((pFile, offset, origin) -> {
+                                    if (origin == aiOrigin_CUR) {
+                                        data.position(data.position() + (int) offset);
+                                    } else if (origin == aiOrigin_SET) {
+                                        data.position((int) offset);
+                                    } else if (origin == aiOrigin_END) {
+                                        data.position(data.limit() + (int) offset);
+                                    }
+                                    System.out.println(fileNameUtf8 + ".seek " + data.position() + " " + origin);
+                                    return 0;
+                                })
+                                .FileSizeProc(pFile -> data.limit())
+                                .address();
+                    })
+                    .CloseProc((pFileIO, pFile) -> {
+                        AIFile aiFile = AIFile.create(pFile);
+
+                        aiFile.ReadProc().free();
+                        aiFile.SeekProc().free();
+                        aiFile.FileSizeProc().free();
+                        aiFile.TellProc().free();
+                        aiFile.free();
+                    });
+
+            try (AIScene scene = aiImportFileEx(path, flags, fileIO)) {
+                if (scene == null || scene.mRootNode() == null) {
+                    throw new RuntimeException("Could not load model: " + aiGetErrorString());
+                }
+
+                Node s = new Node();
+                List<AssimpMaterial> materials = processMaterials(scene);
+                processNode(scene.mRootNode(), scene, s, materials);
+                return s;
+            }
+
+        } finally {
+            fileIO.OpenProc().free();
+            fileIO.CloseProc().free();
+            fileIO.free();
+        }
+    }
 
     private static void processNode(AINode node, AIScene scene, Node s, List<AssimpMaterial> materials) {
         s.setName(node.mName().dataString());

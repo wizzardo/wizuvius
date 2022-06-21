@@ -54,6 +54,7 @@ public abstract class VulkanApplication extends Thread {
     static final Set<String> DEVICE_EXTENSIONS = Stream.of(VK_KHR_SWAPCHAIN_EXTENSION_NAME).collect(toSet());
 
     static {
+        System.setProperty("joml.format", "false");
         Properties properties = System.getProperties();
         if (properties.getProperty("os.name", "").contains("Mac")) {
             Configuration.GLFW_LIBRARY_NAME.set("glfw_async");
