@@ -34,7 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VulkanCommands {
-    static VkCommandBuffer beginSingleTimeCommands(VkDevice device, long commandPool) {
+    public static VkCommandBuffer beginSingleTimeCommands(VkDevice device, long commandPool) {
         try (MemoryStack stack = stackPush()) {
             VkCommandBufferAllocateInfo allocInfo = VkCommandBufferAllocateInfo.calloc(stack);
             allocInfo.sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
@@ -55,7 +55,7 @@ public class VulkanCommands {
         }
     }
 
-    static void endSingleTimeCommands(VkDevice device, VkQueue graphicsQueue, long commandPool, VkCommandBuffer commandBuffer) {
+    public static void endSingleTimeCommands(VkDevice device, VkQueue graphicsQueue, long commandPool, VkCommandBuffer commandBuffer) {
         try (MemoryStack stack = stackPush()) {
             vkEndCommandBuffer(commandBuffer);
 

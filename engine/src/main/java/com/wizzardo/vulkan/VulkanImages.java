@@ -5,17 +5,7 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkCommandBuffer;
-import org.lwjgl.vulkan.VkDevice;
-import org.lwjgl.vulkan.VkExtent2D;
-import org.lwjgl.vulkan.VkFormatProperties;
-import org.lwjgl.vulkan.VkImageCreateInfo;
-import org.lwjgl.vulkan.VkImageMemoryBarrier;
-import org.lwjgl.vulkan.VkImageViewCreateInfo;
-import org.lwjgl.vulkan.VkMemoryAllocateInfo;
-import org.lwjgl.vulkan.VkMemoryRequirements;
-import org.lwjgl.vulkan.VkPhysicalDevice;
-import org.lwjgl.vulkan.VkQueue;
+import org.lwjgl.vulkan.*;
 
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
@@ -83,7 +73,7 @@ public class VulkanImages {
             VkMemoryAllocateInfo allocInfo = VkMemoryAllocateInfo.calloc(stack);
             allocInfo.sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
             allocInfo.allocationSize(memRequirements.size());
-            allocInfo.memoryTypeIndex(VulkanBuffers.findMemoryType(physicalDevice, memRequirements.memoryTypeBits(), memProperties));
+            allocInfo.memoryTypeIndex(VulkanBuffers.findMemoryTypeIndex(physicalDevice, memRequirements.memoryTypeBits(), memProperties));
 
             if (vkAllocateMemory(device, allocInfo, null, pTextureImageMemory) != VK_SUCCESS) {
                 throw new RuntimeException("Failed to allocate image memory");
@@ -216,4 +206,33 @@ public class VulkanImages {
         }
         throw new RuntimeException("Failed to find supported format");
     }
+
+    public static void insertImageMemoryBarrier(
+             MemoryStack stack,
+             VkCommandBuffer cmdbuffer,
+             LongBuffer image,
+             int srcAccessMask,
+             int dstAccessMask,
+             int oldImageLayout,
+             int newImageLayout,
+             int srcStageMask,
+             int dstStageMask,
+             VkImageSubresourceRange subresourceRange
+     ) {
+         VkImageMemoryBarrier.Buffer imageMemoryBarrier = VkImageMemoryBarrier.calloc(1, stack);
+         imageMemoryBarrier.srcAccessMask(srcAccessMask);
+         imageMemoryBarrier.dstAccessMask(dstAccessMask);
+         imageMemoryBarrier.oldLayout(oldImageLayout);
+         imageMemoryBarrier.newLayout(newImageLayout);
+         imageMemoryBarrier.image(image.get(0));
+         imageMemoryBarrier.subresourceRange(subresourceRange);
+
+         vkCmdPipelineBarrier(
+                 cmdbuffer,
+                 srcStageMask,
+                 dstStageMask,
+                 0,
+                 null, null,
+                 imageMemoryBarrier);
+     }
 }

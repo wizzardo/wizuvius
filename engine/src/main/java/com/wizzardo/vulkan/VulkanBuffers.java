@@ -45,7 +45,7 @@ public class VulkanBuffers {
             VkMemoryAllocateInfo allocInfo = VkMemoryAllocateInfo.calloc(stack);
             allocInfo.sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
             allocInfo.allocationSize(memRequirements.size());
-            allocInfo.memoryTypeIndex(findMemoryType(physicalDevice, memRequirements.memoryTypeBits(), properties));
+            allocInfo.memoryTypeIndex(findMemoryTypeIndex(physicalDevice, memRequirements.memoryTypeBits(), properties));
 
             if (vkAllocateMemory(device, allocInfo, null, pBufferMemory) != VK_SUCCESS) {
                 throw new RuntimeException("Failed to allocate vertex buffer memory");
@@ -54,7 +54,7 @@ public class VulkanBuffers {
         }
     }
 
-    static int findMemoryType(VkPhysicalDevice physicalDevice, int typeFilter, int properties) {
+   public static int findMemoryTypeIndex(VkPhysicalDevice physicalDevice, int typeFilter, int properties) {
         VkPhysicalDeviceMemoryProperties memProperties = VkPhysicalDeviceMemoryProperties.malloc();
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, memProperties);
 
