@@ -43,6 +43,7 @@ import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
@@ -164,7 +165,14 @@ public abstract class VulkanApplication extends Thread {
 
     protected abstract InputsManager initInputsManager();
 
-    public TextureImage createTextureImage(String asset) {
+    public TextureImage createTextureImage(String asset) throws IOException {
+        String assetLowerCase = asset.toLowerCase();
+        if (assetLowerCase.endsWith(".ktx")) {
+            return TextureLoader.createTextureImageKtx(physicalDevice, device, transferQueue, commandPool, getAssetFile(asset));
+        } else if (assetLowerCase.endsWith(".ktx2")) {
+            return TextureLoader.createTextureImageKtx2(physicalDevice, device, transferQueue, commandPool, getAssetFile(asset));
+        }
+
         Supplier<ByteBuffer> loader = () -> Unchecked.call(() -> {
             byte[] bytes = IOTools.bytes(loadAsset(asset));
             ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
@@ -188,6 +196,22 @@ public abstract class VulkanApplication extends Thread {
     protected abstract long createSurface(VkInstance instance);
 
     protected abstract InputStream loadAsset(String asset) throws IOException;
+
+    protected File getAssetFile(String asset) throws IOException {
+        File f = new File(asset);
+        if (f.exists())
+            return f;
+
+        InputStream in = this.getClass().getResourceAsStream("/" + asset);
+        if (in == null)
+            throw new IllegalArgumentException("Asset " + asset + " not found");
+
+        f = File.createTempFile(asset, "tmp");
+        FileTools.bytes(f, in);
+        return f;
+    }
+
+    ;
 
     public boolean isDevelopmentEnvironment() {
         return development;

@@ -2,26 +2,14 @@ package com.wizzardo.vulkan;
 
 import static com.wizzardo.vulkan.SwapChainTools.querySwapChainSupport;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
-import static org.lwjgl.vulkan.VK10.vkCreateDevice;
-import static org.lwjgl.vulkan.VK10.vkEnumerateDeviceExtensionProperties;
-import static org.lwjgl.vulkan.VK10.vkEnumeratePhysicalDevices;
-import static org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceFeatures;
 
 import static java.util.stream.Collectors.toSet;
+import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkDevice;
-import org.lwjgl.vulkan.VkDeviceCreateInfo;
-import org.lwjgl.vulkan.VkDeviceQueueCreateInfo;
-import org.lwjgl.vulkan.VkExtensionProperties;
-import org.lwjgl.vulkan.VkInstance;
-import org.lwjgl.vulkan.VkPhysicalDevice;
-import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
+import org.lwjgl.vulkan.*;
 
 import java.nio.IntBuffer;
 
@@ -102,6 +90,23 @@ public class VulkanDevices {
         }
 
         return indices.isComplete() && extensionsSupported && swapChainAdequate && anisotropySupported;
+    }
+
+    public static VkPhysicalDeviceFeatures getDeviceFeatures(MemoryStack stack, VkPhysicalDevice device) {
+        VkPhysicalDeviceFeatures supportedFeatures = VkPhysicalDeviceFeatures.malloc(stack);
+        vkGetPhysicalDeviceFeatures(device, supportedFeatures);
+        return supportedFeatures;
+    }
+
+    public static VkFormatProperties getDeviceFormatProperties(MemoryStack stack, VkPhysicalDevice device, int format) {
+        VkFormatProperties formatProperties = VkFormatProperties.malloc(stack);
+        vkGetPhysicalDeviceFormatProperties(device, format, formatProperties);
+        return formatProperties;
+    }
+
+    public static boolean isFormatSupported(MemoryStack stack, VkPhysicalDevice device, int format) {
+        VkFormatProperties properties = getDeviceFormatProperties(stack, device, format);
+        return (properties.optimalTilingFeatures() & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) != 0 && (properties.optimalTilingFeatures() & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0;
     }
 
     private static boolean checkDeviceExtensionSupport(VkPhysicalDevice device) {

@@ -8,14 +8,12 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkInstance;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -39,7 +37,7 @@ public class DesktopVulkanApplication extends VulkanApplication {
     protected boolean allocationTrackingEnabled = threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled();
     protected long threadId = -1;
     protected ResourcesListener resourcesListener;
-    protected File folder = new File("src/main/resources");
+    protected File devResourcesFolder = new File("src/main/resources");
 
     protected void printAllocation(String mark) {
         if (threadId == -1)
@@ -65,7 +63,7 @@ public class DesktopVulkanApplication extends VulkanApplication {
     }
 
     protected ResourcesListener createResourcesListener() {
-        return new ResourcesListener(Arrays.asList(folder.getAbsolutePath()));
+        return new ResourcesListener(Arrays.asList(devResourcesFolder.getAbsolutePath()));
     }
 
     @Override
@@ -171,33 +169,50 @@ public class DesktopVulkanApplication extends VulkanApplication {
 
     @Override
     public InputStream loadAsset(String asset) throws IOException {
-        String name = asset.toLowerCase();
-        if (name.endsWith(".spv")) {
-            name = asset.substring(0, asset.length() - 4);
-        }
+        File f = new File(asset);
+        if (f.exists())
+            return Files.newInputStream(f.toPath());
 
-        ShaderSPIRVUtils.ShaderKind kind = null;
-        if (name.toLowerCase().endsWith(".frag"))
-            kind = ShaderSPIRVUtils.ShaderKind.FRAGMENT_SHADER;
-        else if (name.toLowerCase().endsWith(".vert"))
-            kind = ShaderSPIRVUtils.ShaderKind.VERTEX_SHADER;
+        {
+            String name = asset;
+            String nameLoweCase = asset.toLowerCase();
+            if (nameLoweCase.endsWith(".spv")) {
+                name = asset.substring(0, asset.length() - 4);
+                nameLoweCase = nameLoweCase.substring(0, nameLoweCase.length() - 4);
+            }
 
-        if (kind != null) {
-            String source;
-            File file = new File(folder, name);
-            if (file.exists())
-                source = new String(FileTools.bytes(file), StandardCharsets.UTF_8);
-            else
-                source = new String(IOTools.bytes(this.getClass().getResourceAsStream("/" + name)), StandardCharsets.UTF_8);
+            ShaderSPIRVUtils.ShaderKind shaderKind = null;
+            if (nameLoweCase.endsWith(".frag"))
+                shaderKind = ShaderSPIRVUtils.ShaderKind.FRAGMENT_SHADER;
+            else if (nameLoweCase.endsWith(".vert"))
+                shaderKind = ShaderSPIRVUtils.ShaderKind.VERTEX_SHADER;
 
-            ShaderSPIRVUtils.SPIRV spirv = ShaderSPIRVUtils.compileShader(name, source, kind);
-            byte[] bytes = new byte[spirv.bytecode().limit()];
-            spirv.bytecode().get(bytes);
-            spirv.free();
+            if (shaderKind != null) {
+                String source;
+                File file = new File(devResourcesFolder, name);
+                if (file.exists())
+                    source = new String(FileTools.bytes(file), StandardCharsets.UTF_8);
+                else
+                    source = new String(IOTools.bytes(this.getClass().getResourceAsStream("/" + name)), StandardCharsets.UTF_8);
 
-            return new ByteArrayInputStream(bytes);
+                ShaderSPIRVUtils.SPIRV spirv = ShaderSPIRVUtils.compileShader(name, source, shaderKind);
+                byte[] bytes = new byte[spirv.bytecode().limit()];
+                spirv.bytecode().get(bytes);
+                spirv.free();
+
+                return new ByteArrayInputStream(bytes);
+            }
         }
         return this.getClass().getResourceAsStream("/" + asset);
+    }
+
+    @Override
+    protected File getAssetFile(String asset) throws IOException {
+        File f = new File(devResourcesFolder, asset);
+        if (f.exists())
+            return f;
+
+        return super.getAssetFile(asset);
     }
 
     public ByteBuffer loadAssetAsByteBuffer(String asset) throws IOException {

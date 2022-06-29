@@ -12,6 +12,6 @@ public abstract class AbstractSampleApp extends DesktopVulkanApplication {
         width = 1280;
         height = 720;
         development = true;
-        super.folder = new File("samples/src/main/resources");
+        super.devResourcesFolder = new File("samples/src/main/resources");
     }
 }
