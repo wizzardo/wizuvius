@@ -8,18 +8,22 @@ import javafx.application.Platform;
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.lwjgl.vulkan.VkDevice;
 
 import java.awt.event.KeyEvent;
 import java.util.List;
 
+import static org.lwjgl.vulkan.VK10.VK_SHADER_STAGE_FRAGMENT_BIT;
+import static org.lwjgl.vulkan.VK10.VK_SHADER_STAGE_VERTEX_BIT;
+
 public class JavaFxQuad extends Geometry {
 
     protected static final Vertex[] vertices = {
-            new Vertex(new Vector3f(0f, 0f, 0f), new Vector3f(1f, 0f, 0.0f), new Vector2f(0.0f, 0.0f)),
-            new Vertex(new Vector3f(1f, 0f, 0f), new Vector3f(1f, 0f, 0.0f), new Vector2f(1.0f, 0.0f)),
-            new Vertex(new Vector3f(1f, 1f, 0f), new Vector3f(1f, 0f, 0.0f), new Vector2f(1.0f, 1.0f)),
-            new Vertex(new Vector3f(0f, 1f, 0f), new Vector3f(1f, 0f, 0.0f), new Vector2f(0.0f, 1.0f))
+            new Vertex(new Vector3f(0f, 0f, 0f), new Vector4f(1f, 0f, 0.0f,1f), new Vector2f(0.0f, 0.0f)),
+            new Vertex(new Vector3f(1f, 0f, 0f), new Vector4f(1f, 0f, 0.0f,1f), new Vector2f(1.0f, 0.0f)),
+            new Vertex(new Vector3f(1f, 1f, 0f), new Vector4f(1f, 0f, 0.0f,1f), new Vector2f(1.0f, 1.0f)),
+            new Vertex(new Vector3f(0f, 1f, 0f), new Vector4f(1f, 0f, 0.0f,1f), new Vector2f(0.0f, 1.0f))
     };
 
     protected static final int[] indices = {
@@ -39,27 +43,28 @@ public class JavaFxQuad extends Geometry {
 
         Matrix4f tempMatrix = new Matrix4f();
         Vector3f mousePosition = new Vector3f();
-        Vector3f local = new Vector3f();
         boolean[] isDragging = new boolean[1];
         InputsManager inputsManager = bridge.application.getInputsManager();
+        float extentScale = bridge.application.getExtentWidth() * 1f / bridge.application.getWidth();
+
         inputsManager.addMouseMoveListener((x, y) -> {
             Camera camera = bridge.application.getGuiViewport().getCamera();
             camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition, tempMatrix);
+            mousePosition.mul(extentScale).sub(getLocalTransform().getTranslation());
 
-            if (isDragging[0] || isMouseOver(mousePosition)) {
-                Vector3f translation = getLocalTransform().getTranslation();
-                local.set(mousePosition).sub(translation);
-                Platform.runLater(() -> bridge.onMouseMove((int) local.x, (int) local.y, (int) x, (int) y));
+            if (isDragging[0] || isMouseOver(mousePosition.x,mousePosition.y)) {
+                int localX = (int) mousePosition.x;
+                int localY = (int) mousePosition.y;
+                Platform.runLater(() -> bridge.onMouseMove(localX, localY, localX, localY));
             }
         });
 
         inputsManager.addMouseButtonListener((x, y, button, pressed) -> {
             Camera camera = bridge.application.getGuiViewport().getCamera();
             camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition, tempMatrix);
+            mousePosition.sub(getLocalTransform().getTranslation());
 
-            if (isMouseOver(mousePosition) || (isDragging[0] && !pressed)) {
-                Vector3f translation = getLocalTransform().getTranslation();
-                local.set(mousePosition).sub(translation);
+            if (isMouseOver(mousePosition.x, mousePosition.y) || (isDragging[0] && !pressed)) {
 
                 int type;
                 if (pressed) {
@@ -81,7 +86,10 @@ public class JavaFxQuad extends Geometry {
                 }
 
                 int finalBtn = btn;
-                Platform.runLater(() -> bridge.onMouseButtonEvent((int) local.x, (int) local.y, (int) x, (int) y, type, finalBtn));
+                int localX = (int) mousePosition.x;
+                int localY = (int) mousePosition.y;
+//                System.out.println("runLater.onMouseButtonEvent " + localX + " " + localY + " " + type + " " + button);
+                Platform.runLater(() -> bridge.onMouseButtonEvent(localX, localY, localX, localY, type, finalBtn));
             }
         });
 
@@ -89,18 +97,19 @@ public class JavaFxQuad extends Geometry {
         inputsManager.addScrollListener((x, y, scrollX, scrollY) -> {
             Camera camera = bridge.application.getGuiViewport().getCamera();
             camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition, tempMatrix);
+            mousePosition.sub(getLocalTransform().getTranslation());
 
-            if (isMouseOver(mousePosition)) {
-                Vector3f translation = getLocalTransform().getTranslation();
-                local.set(mousePosition).sub(translation);
+            if (isMouseOver(mousePosition.x, mousePosition.y)) {
                 int type;
                 if (scrollY != 0)
                     type = AbstractEvents.MOUSEEVENT_VERTICAL_WHEEL;
                 else
                     type = AbstractEvents.MOUSEEVENT_HORIZONTAL_WHEEL;
 
-//                System.out.println("onscroll " + x + "x" + y + ": " + ((int) scrollX) + " " + ((int) scrollY));
-                Platform.runLater(() -> bridge.onMouseScrollEvent((int) local.x, (int) local.y, (int) x, (int) y, scrollX, scrollY, type));
+                int localX = (int) mousePosition.x;
+                int localY = (int) mousePosition.y;
+//                System.out.println("onscroll " + localX + "x" + localY + ": " + ((int) scrollX) + " " + ((int) scrollY));
+                Platform.runLater(() -> bridge.onMouseScrollEvent(localX, localY, localX, localY, scrollX, scrollY, type));
             }
         });
 
@@ -115,42 +124,47 @@ public class JavaFxQuad extends Geometry {
 
     }
 
-
-    protected boolean isMouseOver(Vector3f worldPosition) {
+    protected boolean isMouseOver(float x, float y) {
         Vector3f translation = getLocalTransform().getTranslation();
-        if (worldPosition.x < translation.x || worldPosition.x > translation.x + bridge.textureWidth)
+        if (x < 0 || x >  bridge.textureWidth )
             return false;
-        if (worldPosition.y < translation.y || worldPosition.y > translation.y + bridge.textureHeight)
+        if (y<0 || y >   bridge.textureHeight )
             return false;
 
-        return bridge.isMouseOver((int) (worldPosition.x - translation.x), (int) (worldPosition.y - translation.y));
+        return bridge.isMouseOver((int) x, (int) y);
     }
 
     public void update() {
         JavaFxToTextureBridge.TextureHolder currentImage = bridge.getCurrentImage();
+        if (currentImage == null)
+            return;
+
         this.currentImage = currentImage;
 
         VulkanApplication application = bridge.application;
-        application.getCurrentFrame().addFrameListener(() -> {
-            bridge.release(currentImage);
-        });
+        application.getCurrentFrame().addFrameListener(currentImage.frameListener);
 
         if (currentImage.descriptorSets.isEmpty()) {
-            currentImage.descriptorSets.addAll(VulkanDescriptorSets.createDescriptorSets(
-                    application.getDevice(),
-                    application.getSwapChainImages(),
-                    material.descriptorSetLayout,
-                    application.getDescriptorPool(),
-                    currentImage.textureImage.textureImageView,
-                    material.getTextureSampler(),
-                    uniformBuffers.uniformBuffers
-            ));
+
+            VulkanDescriptorSets.DescriptorSetLayoutBuilder layoutBuilder = new VulkanDescriptorSets.DescriptorSetLayoutBuilder();
+            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUBO(0, VK_SHADER_STAGE_VERTEX_BIT));
+            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT, currentImage.textureImage.textureImageView, material.getTextureSampler()));
+
+            VulkanDescriptorSets.DescriptorSetsBuilder descriptorSetsBuilder = new VulkanDescriptorSets.DescriptorSetsBuilder(layoutBuilder.bindings)
+                    .withUniformBuffers(uniformBuffers.uniformBuffers);
+
+            currentImage.descriptorSets.addAll(descriptorSetsBuilder.build(application.getDevice(), application.getSwapChainImages(), material.descriptorSetLayout, application.getDescriptorPool()));
         }
     }
 
     @Override
     public List<Long> getDescriptorSets() {
         return currentImage.descriptorSets;
+    }
+
+    @Override
+    public boolean isPrepared() {
+        return prepared && currentImage != null;
     }
 
     @Override
@@ -163,5 +177,6 @@ public class JavaFxQuad extends Geometry {
     public void prepare(VulkanApplication application) {
         if (uniformBuffers == null)
             uniformBuffers = UniformBuffers.createUniformBuffers(application.getPhysicalDevice(), application.getDevice(), application.getSwapChainImages());
+        prepared = true;
     }
 }

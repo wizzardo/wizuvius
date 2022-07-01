@@ -7,12 +7,17 @@ import com.sun.javafx.embed.EmbeddedStageInterface;
 import com.sun.javafx.embed.EmbeddedSceneInterface;
 import com.sun.javafx.stage.EmbeddedWindow;
 import com.wizzardo.tools.misc.Unchecked;
+import com.wizzardo.tools.reflection.FieldReflection;
+import com.wizzardo.tools.reflection.FieldReflectionFactory;
 import com.wizzardo.vulkan.*;
 import com.wizzardo.vulkan.input.KeyState;
+import com.wizzardo.vulkan.misc.AtomicArrayList;
 import javafx.application.Platform;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkDevice;
 
 import java.nio.ByteBuffer;
@@ -37,13 +42,15 @@ public class JavaFxToTextureBridge {
     protected volatile Scene scene;
     protected int textureWidth;
     protected int textureHeight;
+    protected float scale;
     protected EmbeddedStageInterface embeddedStage;
     protected EmbeddedSceneInterface embeddedScene;
+    protected FieldReflection texBits;
     protected ByteBuffer tempData;
     protected IntBuffer tempDataIntView;
     protected AtomicReference<TextureHolder> currentImage = new AtomicReference<>();
-    protected Set<TextureHolder> freeTextures = Collections.newSetFromMap(new ConcurrentHashMap<>());
-    protected Set<TextureHolder> occupiedTextures = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    protected List<TextureHolder> freeTextures = new AtomicArrayList<>(10);
+    protected List<TextureHolder> occupiedTextures = new AtomicArrayList<>(10);
     //    protected ConcurrentLinkedQueue<TextureHolder> occupiedTextures = new ConcurrentLinkedQueue<>();
     protected VulkanApplication application;
     protected static volatile int imageFormat;
@@ -89,7 +96,7 @@ public class JavaFxToTextureBridge {
                 1
         );
 
-        return new TextureHolder(textureImage, new ArrayList<>(), textureCounter++);
+        return new TextureHolder(textureImage, new ArrayList<>(), textureCounter++, this);
     }
 
     public void cleanupSwapChainObjects(VkDevice device) {
@@ -102,17 +109,24 @@ public class JavaFxToTextureBridge {
     }
 
     public boolean isMouseOver(int x, int y) {
+        byte alpha = 0;
         if (pixelsNativeFormat == Pixels.Format.BYTE_BGRA_PRE) {
-            tempData.clear();
-            byte alpha = tempData.get((y * textureWidth + x) * 4 + 3);
-            return alpha != 0;
+            if (texBits != null) {
+                IntBuffer bits = (IntBuffer) texBits.getObject(getEmbeddedScene());
+                alpha = (byte) ((bits.get(y * textureWidth + x) >> 24) & 0xFF);
+            } else
+                alpha = tempData.get((y * textureWidth + x) * 4 + 3);
+        } else if (pixelsNativeFormat == Pixels.Format.BYTE_ARGB) {
+            if (texBits != null) {
+                IntBuffer bits = (IntBuffer) texBits.getObject(getEmbeddedScene());
+                alpha = (byte) ((bits.get(y * textureWidth + x)) & 0xFF);
+            } else
+                alpha = tempData.get((y * textureWidth + x) * 4);
         }
-        if (pixelsNativeFormat == Pixels.Format.BYTE_ARGB) {
-            tempData.clear();
-            byte alpha = tempData.get((y * textureWidth + x) * 4);
-            return alpha != 0;
-        }
-        return false;
+        boolean result = alpha != 0;
+//        if (result)
+//            System.out.println("hover: " + x + " " + y);
+        return result;
     }
 
     public static class TextureHolder {
@@ -120,11 +134,13 @@ public class JavaFxToTextureBridge {
         final AtomicInteger counter = new AtomicInteger();
         final List<Long> descriptorSets;
         final int index;
+        final Frame.FrameListener frameListener;
 
-        public TextureHolder(TextureImage textureImage, List<Long> descriptorSets, int index) {
+        public TextureHolder(TextureImage textureImage, List<Long> descriptorSets, int index, JavaFxToTextureBridge bridge) {
             this.textureImage = textureImage;
             this.descriptorSets = descriptorSets;
             this.index = index;
+            frameListener = () -> bridge.release(this);
         }
 
         @Override
@@ -141,22 +157,36 @@ public class JavaFxToTextureBridge {
     }
 
     public JavaFxToTextureBridge(VulkanApplication application, int width, int height) {
+        this(application, width, height, 1f);
+    }
+
+    public JavaFxToTextureBridge(VulkanApplication application, int width, int height, float scale) {
         this(application);
         textureWidth = width;
         textureHeight = height;
+        this.scale = scale;
+        TextureHolder textureHolder = createTextureHolder();
+        freeTextures.add(textureHolder);
 
-        material = new Material();
-        material.setVertexShader("shaders/javafx.vert.spv");
-        material.setFragmentShader("shaders/javafx.frag.spv");
+        material = new Material() {
+            {
+                vertexLayout = new VertexLayout(
+                        VertexLayout.BindingDescription.POSITION,
+                        VertexLayout.BindingDescription.TEXTURE_COORDINATES
+                );
+
+                setVertexShader("shaders/javafx.vert.spv");
+                setFragmentShader("shaders/javafx.frag.spv");
 //        material.setTextureImage(textureImage);
-        material.setTextureSampler(application.createTextureSampler(1));
-//        material.prepare(application, application.getGuiViewport());
+                setTextureImage(textureHolder.textureImage);
+                setTextureSampler(application.createTextureSampler(1));
+//                prepare(application, application.getGuiViewport());
+            }
+        };
 
         int imageSize = textureWidth * textureHeight * 4;
         this.tempData = ByteBuffer.allocateDirect(imageSize).order(ByteOrder.nativeOrder());
         this.tempDataIntView = tempData.asIntBuffer();
-        setCurrentImage(createTextureHolder());
-        freeTextures.add(createTextureHolder());
         this.stagingBuffer = createStagingBuffer(application, imageSize);
     }
 
@@ -178,7 +208,8 @@ public class JavaFxToTextureBridge {
             holder.counter.incrementAndGet();
         } while (currentImage.get() != holder);
 
-        occupiedTextures.add(holder);
+        if (!occupiedTextures.contains(holder))
+            occupiedTextures.add(holder);
 //        System.out.println("getCurrentImage after free: " + freeTextures + " occupied: " + occupiedTextures + " current: " + holder);
         return holder;
     }
@@ -195,15 +226,10 @@ public class JavaFxToTextureBridge {
 
     protected TextureHolder getFreeTexture() {
 //        System.out.println("getFreeTexture before " + freeTextures);
-        Iterator<TextureHolder> iterator = freeTextures.iterator();
-        if (!iterator.hasNext())
+        if (freeTextures.isEmpty())
             return null;
 
-        TextureHolder holder = iterator.next();
-        iterator.remove();
-
-//        System.out.println("getFreeTexture after freer: " + freeTextures);
-        return holder;
+        return freeTextures.remove(freeTextures.size() - 1);
     }
 
     protected void setCurrentImage(TextureHolder holder) {
@@ -230,10 +256,27 @@ public class JavaFxToTextureBridge {
             }
 
             embeddedWindow.setScene(newScene);
+            updateScale();
             if (!embeddedWindow.isShowing()) {
                 embeddedWindow.show();
             }
         });
+    }
+
+    public void setScale(float scale) {
+        this.scale = scale;
+
+        if (scene != null)
+            Platform.runLater(this::updateScale);
+    }
+
+    protected void updateScale() {
+        Parent root = scene.getRoot();
+        root.setScaleX(scale);
+        root.setScaleY(scale);
+
+        root.setTranslateX(-(textureWidth - textureWidth * scale) / 2f);
+        root.setTranslateY(-(textureHeight - textureHeight * scale) / 2f);
     }
 
     public EmbeddedSceneInterface getEmbeddedScene() {
@@ -242,6 +285,12 @@ public class JavaFxToTextureBridge {
 
     public void setEmbeddedScene(EmbeddedSceneInterface embeddedScene) {
         this.embeddedScene = embeddedScene;
+        if (embeddedScene != null) {
+            try {
+                texBits = new FieldReflectionFactory().create(embeddedScene.getClass(), "texBits", true);
+            } catch (NoSuchFieldException ignored) {
+            }
+        }
     }
 
     public EmbeddedStageInterface getEmbeddedStage() {
@@ -268,32 +317,56 @@ public class JavaFxToTextureBridge {
         this.textureHeight = textureHeight;
     }
 
+//    protected long previousPrintFps = System.nanoTime();
+//    protected int fpsCounter = 0;
+
     public void repaint() {
         final EmbeddedSceneInterface sceneInterface = getEmbeddedScene();
-        if (sceneInterface == null) return;
-
-        final ByteBuffer tempData = this.tempData;
-        tempData.clear();
-
-        final int sceneWidth = getTextureWidth();
-        final int sceneHeight = getTextureHeight();
-
-        //todo replace tempData with smaller buffer
-        if (!sceneInterface.getPixels(tempDataIntView, sceneWidth, sceneHeight)) {
+        if (sceneInterface == null)
             return;
+
+//        System.out.println("repaint.before " + "free: " + freeTextures + ", occupied: " + occupiedTextures + ", current: " + (currentImage.get()));
+
+        ByteBuffer tempData;
+        if (texBits != null) {
+            IntBuffer bits = (IntBuffer) texBits.getObject(sceneInterface);
+            TextureHolder holder = getFreeTexture();
+            if (holder == null) {
+                holder = createTextureHolder();
+            }
+            copy(bits, holder);
+            setCurrentImage(holder);
+        } else {
+            tempData = this.tempData;
+            tempData.clear();
+
+            int sceneWidth = getTextureWidth();
+            int sceneHeight = getTextureHeight();
+
+            if (!sceneInterface.getPixels(tempDataIntView, sceneWidth, sceneHeight)) {
+                return;
+            }
+
+
+            tempData.flip();
+            tempData.limit(sceneWidth * sceneHeight * 4);
+
+            TextureHolder holder = getFreeTexture();
+            if (holder == null) {
+                holder = createTextureHolder();
+            }
+            copy(tempData, holder);
+            setCurrentImage(holder);
         }
 
-//        System.out.println("repaint. " + "free: " + freeTextures + ", occupied: " + occupiedTextures + ", current: " + (currentImage.get()));
-
-        tempData.flip();
-        tempData.limit(sceneWidth * sceneHeight * 4);
-
-        TextureHolder holder = getFreeTexture();
-        if (holder == null) {
-            holder = createTextureHolder();
-        }
-        copy(tempData, holder);
-        setCurrentImage(holder);
+//        System.out.println("repaint.after " + "free: " + freeTextures + ", occupied: " + occupiedTextures + ", current: " + (currentImage.get()));
+//        fpsCounter++;
+//        long time = System.nanoTime();
+//        if (time - previousPrintFps >= 1_000_000_000) {
+//            System.out.println("fps: " + fpsCounter);
+//            fpsCounter = 0;
+//            previousPrintFps = time;
+//        }
     }
 
     protected BufferHolder createStagingBuffer(VulkanApplication application, int size) {
@@ -325,6 +398,16 @@ public class JavaFxToTextureBridge {
         src.limit(buffer.capacity());
         buffer.rewind();
         buffer.put(src);
+        copyToTexture(dst);
+    }
+
+    private void copy(IntBuffer src, TextureHolder dst) {
+        ByteBuffer buffer = stagingBuffer.getMappedBuffer();
+        MemoryUtil.memCopy(MemoryUtil.memAddress(src, 0), MemoryUtil.memAddress(buffer), src.capacity() * 4L);
+        copyToTexture(dst);
+    }
+
+    private void copyToTexture(TextureHolder dst) {
         TextureLoader.copyBufferToImage(
                 application.getDevice(),
                 application.getTransferQueue(),

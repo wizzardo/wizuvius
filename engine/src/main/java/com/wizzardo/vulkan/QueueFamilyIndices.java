@@ -2,7 +2,7 @@ package com.wizzardo.vulkan;
 
 import java.util.stream.IntStream;
 
-class QueueFamilyIndices {
+public class QueueFamilyIndices {
     private Integer graphicsFamily;
     private Integer transferFamily;
     private Integer computeFamily;

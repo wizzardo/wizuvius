@@ -15,7 +15,7 @@ public class UnshadedTexture extends Material {
     }
 
     @Override
-    protected void prepare(VulkanApplication application, Viewport viewport) {
+    public void prepare(VulkanApplication application, Viewport viewport) {
         setTextureSampler(application.createTextureSampler(getTextureImage().mipLevels));
         super.prepare(application, viewport);
     }

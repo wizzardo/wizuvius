@@ -81,8 +81,8 @@ public class VulkanDescriptorSets {
         }
     }
 
-    static class DescriptorSetLayoutBuilder {
-        List<DescriptorSetLayoutBinding> bindings = new ArrayList<>();
+    public static class DescriptorSetLayoutBuilder {
+        public List<DescriptorSetLayoutBinding> bindings = new ArrayList<>();
 
         public DescriptorSetLayoutBuilder append(DescriptorSetLayoutBinding descriptorSetLayoutBinding) {
             Optional<DescriptorSetLayoutBinding> binding = bindings.stream().filter(it -> it.binding == descriptorSetLayoutBinding.binding).findFirst();

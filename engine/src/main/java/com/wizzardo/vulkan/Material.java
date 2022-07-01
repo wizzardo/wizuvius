@@ -32,6 +32,10 @@ public class Material {
     public long graphicsPipeline;
     public long pipelineLayout;
 
+    public VertexLayout getVertexLayout(){
+        return vertexLayout;
+    }
+
     public String getVertexShader() {
         return vertexShader;
     }
@@ -103,7 +107,7 @@ public class Material {
         }
     }
 
-    protected void prepare(VulkanApplication application, Viewport viewport) {
+    public void prepare(VulkanApplication application, Viewport viewport) {
         if (descriptorSetLayout == 0L) {
             VulkanDescriptorSets.DescriptorSetLayoutBuilder layoutBuilder = new VulkanDescriptorSets.DescriptorSetLayoutBuilder();
             layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUBO(0, VK_SHADER_STAGE_VERTEX_BIT));

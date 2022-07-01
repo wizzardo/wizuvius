@@ -53,7 +53,7 @@ public class UnshadedColor extends Material {
     }
 
     @Override
-    protected void prepare(VulkanApplication application, Viewport viewport) {
+    public void prepare(VulkanApplication application, Viewport viewport) {
         if (uniformBuffers == null)
             uniformBuffers = UniformBuffers.createUniformBuffers(application.getPhysicalDevice(), application.getDevice(), 1, Float.SIZE * 3);
 

@@ -146,6 +146,21 @@ public abstract class VulkanApplication extends Thread {
         running = false;
     }
 
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
+    public int getExtentWidth() {
+        return extentWidth;
+    }
+
+    public int getExtentHeight() {
+        return extentHeight;
+    }
 
     public void resize(int width, int height) {
         this.width = width;

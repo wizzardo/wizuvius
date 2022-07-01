@@ -10,7 +10,7 @@ import org.lwjgl.vulkan.*;
 import java.nio.IntBuffer;
 
 public class VulkanQueues {
-    static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, long surface) {
+    public static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, long surface) {
         QueueFamilyIndices indices = new QueueFamilyIndices();
 
         try (MemoryStack stack = stackPush()) {

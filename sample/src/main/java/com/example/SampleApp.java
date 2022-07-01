@@ -4,16 +4,17 @@ import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.*;
 import com.wizzardo.vulkan.scene.Geometry;
+import com.wizzardo.vulkan.scene.Spatial;
 import com.wizzardo.vulkan.ui.javafx.JavaFxQuad;
 import com.wizzardo.vulkan.ui.javafx.JavaFxToTextureBridge;
+import com.wizzardo.vulkan.ui.javafx.WebViewSample;
 import javafx.application.Platform;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.paint.Color;
-import org.joml.Vector2f;
 import org.joml.Vector3f;
-import org.joml.Vector3fc;
+import org.joml.Vector4f;
 
 import java.nio.ByteBuffer;
 
@@ -28,7 +29,9 @@ public class SampleApp extends DesktopVulkanApplication {
     }
 
     public static void main(String[] args) {
-        new SampleApp().start();
+        System.setProperty("joml.format", "false");
+        JavaFxToTextureBridge.init();
+        new SampleApp().run();
     }
 
     Material material;
@@ -36,7 +39,7 @@ public class SampleApp extends DesktopVulkanApplication {
 
     @Override
     protected void initApp() {
-        TextureImage textureImage = createTextureImage("textures/viking_room.png");
+        TextureImage textureImage = Unchecked.call(() -> createTextureImage("textures/viking_room.png"));
 
         material = new Material();
         material.setVertexShader("shaders/tri.vert.spv");
@@ -44,46 +47,74 @@ public class SampleApp extends DesktopVulkanApplication {
         material.setTextureImage(textureImage);
         material.setTextureSampler(createTextureSampler(textureImage.mipLevels));
 
-        Mesh mesh = loadMesh();
 
         {
-            Geometry geometry = new Geometry(mesh, material);
+            Spatial spatial = loadMesh();
+            getMainViewport().getScene().attachChild(spatial);
+//            Geometry geometry = new Geometry(mesh, material);
 //            geometry.getLocalTransform().setScale(0.5f);
 //            geometry.getLocalTransform().setTranslation(0, 0, 0.5f);
-            addGeometry(geometry, getMainViewport());
+//            addGeometry(geometry, getMainViewport());
+
+            allocationTrackingEnabled = false;
         }
 
         getMainViewport().getCamera().setLocation(new Vector3f(2, 2, 2));
         getMainViewport().getCamera().lookAt(Vectors.ZERO, Vectors.UNIT_Z);
 
         {
+//            JavaFxToTextureBridge bridge = new JavaFxToTextureBridge(this, 400, 200);
+            JavaFxToTextureBridge bridge = new JavaFxToTextureBridge(this, extentWidth, extentHeight);
 
-            JavaFxToTextureBridge bridge = new JavaFxToTextureBridge(this, 400, 200);
+            Platform.runLater(() -> {
 
-            Button button = new Button("BUTTON");
-            Group rootNode = new Group(button);
-            Scene scene = new Scene(rootNode, 400, 200);
-            scene.setFill(Color.TRANSPARENT);
-//            scene.setFill(Color.GREEN);
 
-            bridge.setScene(scene);
+//                Button button = new Button("BUTTON");
+//                Group rootNode = new Group(button);
+//                Scene scene = new Scene(rootNode, 400, 200);
+//                scene.setFill(Color.TRANSPARENT);
+//                scene.setFill(Color.GREEN);
 
+
+//                WebViewSample.WebHolder webHolder = new WebViewSample.WebHolder("http://localhost:8080/", extentWidth, extentHeight, 1.5f);
+//                WebViewSample.WebHolder webHolder = new WebViewSample.WebHolder("https://wizzardo.github.io/react-ui-basics/?path=/story/scrollable--story-1", width, height, "clientId");
+//                WebViewSample.WebHolder webHolder = new WebViewSample.WebHolder("https://ya.ru", width, height, 2f);
+                WebViewSample.WebHolder webHolder = new WebViewSample.WebHolder("https://www.playground.ru/misc/news/krasochnaya_vyzhivalka_under_a_rock_poluchila_novyj_trejler-1218256", width, height, 2f);
+//            webHolder = new WebViewSample.WebHolder("http://localhost:9009/?path=/story/scrollable--story-1", width, height, clientId);
+//            webHolder = new WebViewSample.WebHolder("http://localhost:9009/iframe.html?id=scrollable--story-1", width, height, clientId);
+
+                var group = new Group(webHolder);
+                var scene = new Scene(group, extentWidth, extentHeight);
+                scene.setFill(Color.TRANSPARENT);
+
+                bridge.setScene(scene);
+            });
 
             javaFxUI = new JavaFxQuad(bridge);
-            addGeometry(javaFxUI, getGuiViewport());
+//            javaFxUI.getLocalTransform().setTranslation(10, 10, 0);
+//            javaFxUI.getLocalTransform().setTranslation(width/2, height/2, 0);
+//            addGeometry(javaFxUI, getGuiViewport());
 
-            Thread thread = new Thread(() -> {
-                int i =0;
-                while(true){
-                    Unchecked.ignore(() -> Thread.sleep(1000));
-                    i++;
-                    int finalI = i;
-                    Platform.runLater(() -> button.setText("BUTTON " + String.format("%03d", finalI)));
-//                    return;
-                }
-            });
-            thread.setDaemon(true);
-            thread.start();
+            javaFxUI.getMaterial().prepare(this, getGuiViewport());
+            javaFxUI.getMesh().prepare(this, javaFxUI.getMaterial().getVertexLayout());
+            javaFxUI.prepare(this);
+            getGuiViewport().getScene().attachChild(javaFxUI);
+
+//            javaFxUI.getLocalTransform().getScale().x = width * 2.f;
+//            javaFxUI.getLocalTransform().getScale().y = height * 2.f;
+
+//            Thread thread = new Thread(() -> {
+//                int i =0;
+//                while(true){
+//                    Unchecked.ignore(() -> Thread.sleep(1000));
+//                    i++;
+//                    int finalI = i;
+//                    Platform.runLater(() -> button.setText("BUTTON " + String.format("%03d", finalI)));
+////                    return;
+//                }
+//            });
+//            thread.setDaemon(true);
+//            thread.start();
 
 //            Material material = new Material();
 //            material.setVertexShader("shaders/tri.vert.spv");
@@ -112,6 +143,10 @@ public class SampleApp extends DesktopVulkanApplication {
 //            geometry.getLocalTransform().setTranslation(-100, -100, 0);
 //            addGeometry(geometry, getGuiViewport());
         }
+
+//        this.initInputsManager().addMouseMoveListener((x, y) -> {
+//            System.out.println("mouse: "+x+" "+y);
+//        });
     }
 
     @Override
@@ -135,33 +170,14 @@ public class SampleApp extends DesktopVulkanApplication {
         JavaFxToTextureBridge.cleanup();
     }
 
-    private Mesh loadMesh() {
-        ModelLoader.Model model = Unchecked.call(() -> {
+    private Spatial loadMesh() {
+        Spatial spatial = Unchecked.call(() -> {
             byte[] bytes = IOTools.bytes(loadAsset("models/viking_room.obj"));
             ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
             buffer.put(bytes);
             buffer.flip();
             return ModelLoader.loadModel(buffer, aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices, "viking_room.obj");
         });
-
-        Vertex[] vertices;
-        int[] indices;
-        int vertexCount = model.positions.size();
-        vertices = new Vertex[vertexCount];
-        Vector3fc color = new Vector3f(1.0f, 1.0f, 1.0f);
-
-        for (int i = 0; i < vertexCount; i++) {
-            vertices[i] = new Vertex(
-                    model.positions.get(i),
-                    color,
-                    model.texCoords.get(i));
-        }
-
-        indices = new int[model.indices.size()];
-        for (int i = 0; i < indices.length; i++) {
-            indices[i] = model.indices.get(i);
-        }
-
-        return new Mesh(vertices, indices);
+        return spatial;
     }
 }
