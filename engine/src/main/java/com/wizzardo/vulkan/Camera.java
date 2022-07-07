@@ -14,8 +14,8 @@ public class Camera {
     protected int screenWidth;
     protected int screenHeight;
 
-    public void setProjection(float fieldOfViewDegrees, float aspectRation, float nearPlane, float farPlane) {
-        projection.setPerspective((float) Math.toRadians(fieldOfViewDegrees), aspectRation, nearPlane, farPlane);
+    public void setProjection(float fieldOfViewDegreesY, float aspectRation, float nearPlane, float farPlane) {
+        projection.setPerspective((float) Math.toRadians(fieldOfViewDegreesY), aspectRation, nearPlane, farPlane);
         projection.m11(projection.m11() * -1);
     }
 

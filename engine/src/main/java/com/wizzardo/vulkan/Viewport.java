@@ -34,6 +34,8 @@ public class Viewport {
     protected VkExtent2D extent;
     protected VkOffset2D offset = VkOffset2D.create().set(0, 0);
     protected ByteBuffer byteBufferPointer = MemoryUtil.memByteBufferSafe(-1, 0);
+    protected int colorAttachmentsCount = 1;
+    protected boolean colorBlendingEnabled = true;
 
     public Camera getCamera() {
         return camera;
@@ -49,6 +51,22 @@ public class Viewport {
 
     public void setScene(Node scene) {
         this.scene = scene;
+    }
+
+    public int getColorAttachmentsCount() {
+        return colorAttachmentsCount;
+    }
+
+    public void setColorAttachmentsCount(int colorAttachmentsCount) {
+        this.colorAttachmentsCount = colorAttachmentsCount;
+    }
+
+    public boolean isColorBlendingEnabled() {
+        return colorBlendingEnabled;
+    }
+
+    public void setColorBlendingEnabled(boolean colorBlendingEnabled) {
+        this.colorBlendingEnabled = colorBlendingEnabled;
     }
 
     public long getRenderPass() {

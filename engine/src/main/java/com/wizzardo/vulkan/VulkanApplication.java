@@ -112,7 +112,7 @@ public abstract class VulkanApplication extends Thread {
     protected DepthResources depthResources;
 
     protected SyncObjects syncObjects;
-
+    protected long waitForSemaphore = 0;
     protected int currentFrame;
     protected volatile int width;
     protected volatile int height;
@@ -408,21 +408,23 @@ public abstract class VulkanApplication extends Thread {
 
     }
 
-    static class DrawFrameTempData {
-        final IntBuffer pImageIndex;
-        final LongBuffer pLong;
-        final LongBuffer pLong2;
-        final IntBuffer pInt;
-        final PointerBuffer pCommandBuffers;
-        final VkSubmitInfo submitInfo;
-        final VkPresentInfoKHR presentInfo;
-        final CommandBufferTempData commandBufferTempData;
-        final PointerBuffer pPointerBuffer;
+    protected static class DrawFrameTempData {
+        public final IntBuffer pImageIndex;
+        public final LongBuffer pLong;
+        public final LongBuffer pLong2;
+        public final LongBuffer pLong_2;
+        public final IntBuffer pInt;
+        public final PointerBuffer pCommandBuffers;
+        public final VkSubmitInfo submitInfo;
+        public final VkPresentInfoKHR presentInfo;
+        public final CommandBufferTempData commandBufferTempData;
+        public final PointerBuffer pPointerBuffer;
 
-        DrawFrameTempData(MemoryStack stack) {
+        public DrawFrameTempData(MemoryStack stack) {
             pImageIndex = stack.mallocInt(1);
             pLong = stack.mallocLong(1);
             pLong2 = stack.mallocLong(1);
+            pLong_2 = stack.mallocLong(2);
             pInt = stack.mallocInt(1);
             pCommandBuffers = stack.mallocPointer(2);
             submitInfo = VkSubmitInfo.calloc(stack);
@@ -501,8 +503,7 @@ public abstract class VulkanApplication extends Thread {
             VkDevice device,
             ByteBuffer vertShaderSPIRV,
             ByteBuffer fragShaderSPIRV,
-            VkExtent2D swapChainExtent,
-            long renderPass,
+            Viewport viewport,
             long descriptorSetLayout,
             Material.VertexLayout vertexLayout
     ) {
@@ -543,21 +544,21 @@ public abstract class VulkanApplication extends Thread {
 
             // ===> VIEWPORT & SCISSOR
 
-            VkViewport.Buffer viewport = VkViewport.calloc(1, stack);
-            viewport.x(0.0f);
-            viewport.y(0.0f);
-            viewport.width(swapChainExtent.width());
-            viewport.height(swapChainExtent.height());
-            viewport.minDepth(0.0f);
-            viewport.maxDepth(1.0f);
+            VkViewport.Buffer vkViewports = VkViewport.calloc(1, stack);
+            vkViewports.x(0.0f);
+            vkViewports.y(0.0f);
+            vkViewports.width(viewport.extent.width());
+            vkViewports.height(viewport.extent.height());
+            vkViewports.minDepth(0.0f);
+            vkViewports.maxDepth(1.0f);
 
             VkRect2D.Buffer scissor = VkRect2D.calloc(1, stack);
             scissor.offset(VkOffset2D.calloc(stack).set(0, 0));
-            scissor.extent(swapChainExtent);
+            scissor.extent(viewport.extent);
 
             VkPipelineViewportStateCreateInfo viewportState = VkPipelineViewportStateCreateInfo.calloc(stack);
             viewportState.sType(VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO);
-            viewportState.pViewports(viewport);
+            viewportState.pViewports(vkViewports);
             viewportState.pScissors(scissor);
 
             // ===> RASTERIZATION STAGE <===
@@ -585,28 +586,35 @@ public abstract class VulkanApplication extends Thread {
             depthStencil.depthTestEnable(true);
             depthStencil.depthWriteEnable(true);
             depthStencil.depthCompareOp(VK_COMPARE_OP_LESS);
+//            depthStencil.depthCompareOp(VK_COMPARE_OP_LESS_OR_EQUAL); // todo check the difference
             depthStencil.depthBoundsTestEnable(false);
             depthStencil.minDepthBounds(0.0f); // Optional
             depthStencil.maxDepthBounds(1.0f); // Optional
             depthStencil.stencilTestEnable(false);
 
             // ===> COLOR BLENDING <===
-
-            VkPipelineColorBlendAttachmentState.Buffer colorBlendAttachment = VkPipelineColorBlendAttachmentState.calloc(1, stack);
-            colorBlendAttachment.colorWriteMask(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
-            colorBlendAttachment.blendEnable(true);
-            colorBlendAttachment.srcColorBlendFactor(VK_BLEND_FACTOR_SRC_ALPHA);
-            colorBlendAttachment.dstColorBlendFactor(VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA);
-            colorBlendAttachment.colorBlendOp(VK_BLEND_OP_ADD);
-            colorBlendAttachment.srcAlphaBlendFactor(VK_BLEND_FACTOR_ONE);
-            colorBlendAttachment.dstAlphaBlendFactor(VK_BLEND_FACTOR_ZERO);
-            colorBlendAttachment.alphaBlendOp(VK_BLEND_OP_ADD);
+            VkPipelineColorBlendAttachmentState.Buffer colorBlendAttachments = VkPipelineColorBlendAttachmentState.calloc(viewport.getColorAttachmentsCount(), stack);
+            for (int i = 0; i < colorBlendAttachments.capacity(); i++) {
+                VkPipelineColorBlendAttachmentState attachmentState = colorBlendAttachments.get(i);
+                attachmentState.colorWriteMask(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
+                if (viewport.isColorBlendingEnabled()) {
+                    attachmentState.blendEnable(true);
+                    attachmentState.srcColorBlendFactor(VK_BLEND_FACTOR_SRC_ALPHA);
+                    attachmentState.dstColorBlendFactor(VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA);
+                    attachmentState.colorBlendOp(VK_BLEND_OP_ADD);
+                    attachmentState.srcAlphaBlendFactor(VK_BLEND_FACTOR_ONE);
+                    attachmentState.dstAlphaBlendFactor(VK_BLEND_FACTOR_ZERO);
+                    attachmentState.alphaBlendOp(VK_BLEND_OP_ADD);
+                } else {
+                    attachmentState.blendEnable(false);
+                }
+            }
 
             VkPipelineColorBlendStateCreateInfo colorBlending = VkPipelineColorBlendStateCreateInfo.calloc(stack);
             colorBlending.sType(VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO);
             colorBlending.logicOpEnable(false);
             colorBlending.logicOp(VK_LOGIC_OP_COPY);
-            colorBlending.pAttachments(colorBlendAttachment);
+            colorBlending.pAttachments(colorBlendAttachments);
             colorBlending.blendConstants(stack.floats(0.0f, 0.0f, 0.0f, 0.0f));
 
             // ===> PIPELINE LAYOUT CREATION <===
@@ -634,7 +642,7 @@ public abstract class VulkanApplication extends Thread {
             pipelineInfo.pDepthStencilState(depthStencil);
             pipelineInfo.pColorBlendState(colorBlending);
             pipelineInfo.layout(pipelineLayout);
-            pipelineInfo.renderPass(renderPass);
+            pipelineInfo.renderPass(viewport.getRenderPass());
             pipelineInfo.subpass(0);
             pipelineInfo.basePipelineHandle(VK_NULL_HANDLE);
             pipelineInfo.basePipelineIndex(-1);
@@ -686,7 +694,7 @@ public abstract class VulkanApplication extends Thread {
     protected void drawFrame(DrawFrameTempData tempData) {
         printAllocation("drawFrame start");
         Frame thisFrame = getCurrentFrame();
-        vkWaitForFences(device, thisFrame.pFence(tempData.pLong), true, UINT64_MAX);
+//        vkWaitForFences(device, thisFrame.pFence(tempData.pLong), true, UINT64_MAX);
 
         int vkResult = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, thisFrame.imageAvailableSemaphore(), VK_NULL_HANDLE, tempData.pImageIndex);
         if (vkResult == VK_ERROR_OUT_OF_DATE_KHR || vkResult == VK_SUBOPTIMAL_KHR) {
@@ -704,10 +712,12 @@ public abstract class VulkanApplication extends Thread {
 
         Frame prev = syncObjects.byImage(imageIndex);
         if (prev != null) {
-            vkWaitForFences(device, prev.pFence(tempData.pLong), true, UINT64_MAX);
+//            vkWaitForFences(device, prev.pFence(tempData.pLong), true, UINT64_MAX);
             prev.onFinish();
             prev.resetListeners();
         }
+
+        waitForSemaphore = thisFrame.imageAvailableSemaphore();
 
         syncObjects.setByImage(imageIndex, thisFrame);
 
@@ -719,27 +729,29 @@ public abstract class VulkanApplication extends Thread {
         simpleUpdate(tpf);
         printAllocation("drawFrame after simpleUpdate");
 
-        mainViewport.updateModelUniformBuffers(this, imageIndex, tempData.pPointerBuffer);
-        guiViewport.updateModelUniformBuffers(this, imageIndex, tempData.pPointerBuffer);
+        updateModelUniformBuffers(tempData, imageIndex);
         printAllocation("drawFrame after updateModelUniformBuffers");
 
-        VkCommandBuffer commandBuffer = recordCommands(mainViewport, imageIndex, tempData.commandBufferTempData);
-        VkCommandBuffer guiCommandBuffer = recordCommands(guiViewport, imageIndex, tempData.commandBufferTempData);
+        recordCommands(tempData, imageIndex);
         printAllocation("drawFrame after recordCommands");
 
-        vkResetFences(device, thisFrame.pFence(tempData.pLong));
+//        vkResetFences(device, thisFrame.pFence(tempData.pLong));
 
         VkSubmitInfo submitInfo = tempData.submitInfo;
         submitInfo.sType(VK_STRUCTURE_TYPE_SUBMIT_INFO);
 
         submitInfo.waitSemaphoreCount(1);
-        submitInfo.pWaitSemaphores(thisFrame.pImageAvailableSemaphore(tempData.pLong));
+        submitInfo.pWaitSemaphores(tempData.pLong.put(0, waitForSemaphore));
         submitInfo.pWaitDstStageMask(tempData.pInt.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT));
         submitInfo.pSignalSemaphores(thisFrame.pRenderFinishedSemaphore(tempData.pLong2));
+
+        VkCommandBuffer commandBuffer = mainViewport.getCommandBuffers().get(imageIndex);
+        VkCommandBuffer guiCommandBuffer = guiViewport.getCommandBuffers().get(imageIndex);
         submitInfo.pCommandBuffers(tempData.pCommandBuffers.put(0, commandBuffer).put(1, guiCommandBuffer));
 
-        if ((vkResult = vkQueueSubmit(graphicsQueue, submitInfo, thisFrame.fence())) != VK_SUCCESS) {
-            vkResetFences(device, thisFrame.pFence(tempData.pLong));
+//        if ((vkResult = vkQueueSubmit(graphicsQueue, submitInfo, thisFrame.fence())) != VK_SUCCESS) {
+        if ((vkResult = vkQueueSubmit(graphicsQueue, submitInfo, 0)) != VK_SUCCESS) {
+//            vkResetFences(device, thisFrame.pFence(tempData.pLong));
             throw new RuntimeException("Failed to submit draw command buffer: " + vkResult);
         }
 
@@ -775,6 +787,16 @@ public abstract class VulkanApplication extends Thread {
         printAllocation("drawFrame end");
     }
 
+    protected void recordCommands(DrawFrameTempData tempData, int imageIndex) {
+        recordCommands(mainViewport, imageIndex, tempData.commandBufferTempData);
+        recordCommands(guiViewport, imageIndex, tempData.commandBufferTempData);
+    }
+
+    protected void updateModelUniformBuffers(DrawFrameTempData tempData, int imageIndex) {
+        mainViewport.updateModelUniformBuffers(this, imageIndex, tempData.pPointerBuffer);
+        guiViewport.updateModelUniformBuffers(this, imageIndex, tempData.pPointerBuffer);
+    }
+
     public Frame getCurrentFrame() {
         return syncObjects.getFrame(currentFrame);
     }
@@ -782,24 +804,29 @@ public abstract class VulkanApplication extends Thread {
     protected void simpleUpdate(double tpf) {
     }
 
-    static class CommandBufferTempData {
-        final VkCommandBufferBeginInfo beginInfo;
-        final VkRenderPassBeginInfo renderPassInfo;
-        final VkRect2D renderArea;
-        final VkClearValue.Buffer clearValues;
-        //        final         FloatBuffer clearColor;
-        final LongBuffer pLong_1;
-        final LongBuffer pLong_2;
+    protected static class CommandBufferTempData {
+        public final VkCommandBufferBeginInfo beginInfo;
+        public final VkRenderPassBeginInfo renderPassInfo;
+        public final VkRect2D renderArea;
+        public final VkClearValue.Buffer clearValues;
+        public final LongBuffer pLong_1;
+        public final LongBuffer pLong_2;
 
-        CommandBufferTempData(MemoryStack stack) {
+        public CommandBufferTempData(MemoryStack stack) {
+            this(stack, 1);
+        }
+
+        public CommandBufferTempData(MemoryStack stack, int clearColors) {
             beginInfo = VkCommandBufferBeginInfo.calloc(stack);
             renderPassInfo = VkRenderPassBeginInfo.calloc(stack);
             renderArea = VkRect2D.calloc(stack);
-            clearValues = VkClearValue.calloc(2, stack);
 
-//            clearColor = stack.floats(0.0f, 0.0f, 0.0f, 1.0f);
-            clearValues.get(0).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 1.0f));
-            clearValues.get(1).depthStencil().set(1.0f, 0);
+            clearValues = VkClearValue.calloc(clearColors + 1, stack);
+            for (int i = 0; i < clearColors; i++) {
+                clearValues.get(i).color().float32(stack.floats(0.0f));
+            }
+            clearValues.get(clearValues.capacity() - 1).depthStencil().set(1.0f, 0);
+
             pLong_1 = stack.longs(0);
             pLong_2 = stack.longs(0);
         }
@@ -811,33 +838,23 @@ public abstract class VulkanApplication extends Thread {
     protected VkCommandBuffer recordCommands(Viewport viewport, int imageIndex, CommandBufferTempData tempData) {
         VkCommandBuffer commandBuffer = viewport.getCommandBuffers().get(imageIndex);
 
-//            if (vkResetCommandBuffer(commandBuffer, 0) != VK_SUCCESS) {
-//                throw new RuntimeException("Failed to reset command buffer");
-//            }
-
         VkCommandBufferBeginInfo beginInfo = tempData.beginInfo;
         beginInfo.sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
         beginInfo.flags(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
+        if (vkBeginCommandBuffer(commandBuffer, beginInfo) != VK_SUCCESS) {
+            throw new RuntimeException("Failed to begin recording command buffer");
+        }
+
         VkRenderPassBeginInfo renderPassInfo = tempData.renderPassInfo;
         renderPassInfo.sType(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
-
         renderPassInfo.renderPass(viewport.getRenderPass());
 
         VkRect2D renderArea = tempData.renderArea;
         renderArea.offset(viewport.getOffset());
         renderArea.extent(viewport.getExtent());
         renderPassInfo.renderArea(renderArea);
-
-        VkClearValue.Buffer clearValues = tempData.clearValues;
-//            clearValues.get(0).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 1.0f));
-//            clearValues.get(1).depthStencil().set(1.0f, 0);
-        renderPassInfo.pClearValues(clearValues);
-
-        if (vkBeginCommandBuffer(commandBuffer, beginInfo) != VK_SUCCESS) {
-            throw new RuntimeException("Failed to begin recording command buffer");
-        }
-
+        renderPassInfo.pClearValues(tempData.clearValues);
         renderPassInfo.framebuffer(viewport.getSwapChainFramebuffers().get(imageIndex));
 
         vkCmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);

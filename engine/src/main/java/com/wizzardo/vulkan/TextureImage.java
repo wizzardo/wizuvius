@@ -12,7 +12,7 @@ public class TextureImage {
     public final long textureImageMemory;
     public final long textureImageView;
 
-    TextureImage(int mipLevels, long textureImage, long textureImageMemory, long textureImageView) {
+    public TextureImage(int mipLevels, long textureImage, long textureImageMemory, long textureImageView) {
         this.mipLevels = mipLevels;
         this.textureImage = textureImage;
         this.textureImageMemory = textureImageMemory;

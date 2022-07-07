@@ -36,15 +36,7 @@ import java.util.List;
 public class VulkanCommands {
     public static VkCommandBuffer beginSingleTimeCommands(VkDevice device, long commandPool) {
         try (MemoryStack stack = stackPush()) {
-            VkCommandBufferAllocateInfo allocInfo = VkCommandBufferAllocateInfo.calloc(stack);
-            allocInfo.sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
-            allocInfo.level(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-            allocInfo.commandPool(commandPool);
-            allocInfo.commandBufferCount(1);
-
-            PointerBuffer pCommandBuffer = stack.mallocPointer(1);
-            vkAllocateCommandBuffers(device, allocInfo, pCommandBuffer);
-            VkCommandBuffer commandBuffer = new VkCommandBuffer(pCommandBuffer.get(0), device);
+            VkCommandBuffer commandBuffer = createCommandBuffer(stack, device, commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
             VkCommandBufferBeginInfo beginInfo = VkCommandBufferBeginInfo.calloc(stack);
             beginInfo.sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
@@ -53,6 +45,18 @@ public class VulkanCommands {
             vkBeginCommandBuffer(commandBuffer, beginInfo);
             return commandBuffer;
         }
+    }
+
+    public static VkCommandBuffer createCommandBuffer(MemoryStack stack, VkDevice device, long commandPool, int level) {
+        VkCommandBufferAllocateInfo allocInfo = VkCommandBufferAllocateInfo.calloc(stack);
+        allocInfo.sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
+        allocInfo.level(level);
+        allocInfo.commandPool(commandPool);
+        allocInfo.commandBufferCount(1);
+
+        PointerBuffer pCommandBuffer = stack.mallocPointer(1);
+        vkAllocateCommandBuffers(device, allocInfo, pCommandBuffer);
+        return new VkCommandBuffer(pCommandBuffer.get(0), device);
     }
 
     public static void endSingleTimeCommands(VkDevice device, VkQueue graphicsQueue, long commandPool, VkCommandBuffer commandBuffer) {

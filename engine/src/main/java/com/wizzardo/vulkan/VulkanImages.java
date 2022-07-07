@@ -183,14 +183,20 @@ public class VulkanImages {
         }
     }
 
-    static int findDepthFormat(VkPhysicalDevice physicalDevice) {
+    public static int findDepthFormat(VkPhysicalDevice physicalDevice) {
         return findSupportedFormat(physicalDevice,
-                stackGet().ints(VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT),
+                stackGet().ints(
+                        VK_FORMAT_D32_SFLOAT,
+                        VK_FORMAT_D32_SFLOAT_S8_UINT,
+                        VK_FORMAT_D24_UNORM_S8_UINT,
+                        VK_FORMAT_D16_UNORM_S8_UINT,
+                        VK_FORMAT_D16_UNORM
+                ),
                 VK_IMAGE_TILING_OPTIMAL,
                 VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
     }
 
-    static int findSupportedFormat(VkPhysicalDevice physicalDevice, IntBuffer formatCandidates, int tiling, int features) {
+    public static int findSupportedFormat(VkPhysicalDevice physicalDevice, IntBuffer formatCandidates, int tiling, int features) {
         try (MemoryStack stack = stackPush()) {
             VkFormatProperties props = VkFormatProperties.calloc(stack);
             for (int i = 0; i < formatCandidates.capacity(); ++i) {
@@ -208,31 +214,31 @@ public class VulkanImages {
     }
 
     public static void insertImageMemoryBarrier(
-             MemoryStack stack,
-             VkCommandBuffer cmdbuffer,
-             LongBuffer image,
-             int srcAccessMask,
-             int dstAccessMask,
-             int oldImageLayout,
-             int newImageLayout,
-             int srcStageMask,
-             int dstStageMask,
-             VkImageSubresourceRange subresourceRange
-     ) {
-         VkImageMemoryBarrier.Buffer imageMemoryBarrier = VkImageMemoryBarrier.calloc(1, stack);
-         imageMemoryBarrier.srcAccessMask(srcAccessMask);
-         imageMemoryBarrier.dstAccessMask(dstAccessMask);
-         imageMemoryBarrier.oldLayout(oldImageLayout);
-         imageMemoryBarrier.newLayout(newImageLayout);
-         imageMemoryBarrier.image(image.get(0));
-         imageMemoryBarrier.subresourceRange(subresourceRange);
+            MemoryStack stack,
+            VkCommandBuffer cmdbuffer,
+            LongBuffer image,
+            int srcAccessMask,
+            int dstAccessMask,
+            int oldImageLayout,
+            int newImageLayout,
+            int srcStageMask,
+            int dstStageMask,
+            VkImageSubresourceRange subresourceRange
+    ) {
+        VkImageMemoryBarrier.Buffer imageMemoryBarrier = VkImageMemoryBarrier.calloc(1, stack);
+        imageMemoryBarrier.srcAccessMask(srcAccessMask);
+        imageMemoryBarrier.dstAccessMask(dstAccessMask);
+        imageMemoryBarrier.oldLayout(oldImageLayout);
+        imageMemoryBarrier.newLayout(newImageLayout);
+        imageMemoryBarrier.image(image.get(0));
+        imageMemoryBarrier.subresourceRange(subresourceRange);
 
-         vkCmdPipelineBarrier(
-                 cmdbuffer,
-                 srcStageMask,
-                 dstStageMask,
-                 0,
-                 null, null,
-                 imageMemoryBarrier);
-     }
+        vkCmdPipelineBarrier(
+                cmdbuffer,
+                srcStageMask,
+                dstStageMask,
+                0,
+                null, null,
+                imageMemoryBarrier);
+    }
 }
