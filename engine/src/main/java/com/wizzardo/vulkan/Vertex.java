@@ -17,12 +17,22 @@ public class Vertex {
     public final Vector4fc color;
     public final Vector2fc texCoords;
     public final Vector3fc normal;
+    public final Vector3fc tangent;
 
     public Vertex(Vector3fc pos, Vector4fc color, Vector2fc texCoords, Vector3fc normal) {
         this.pos = pos;
         this.color = color;
         this.texCoords = texCoords;
         this.normal = normal;
+        this.tangent = null;
+    }
+
+    public Vertex(Vector3fc pos, Vector4fc color, Vector2fc texCoords, Vector3fc normal, Vector3fc tangent) {
+        this.pos = pos;
+        this.color = color;
+        this.texCoords = texCoords;
+        this.normal = normal;
+        this.tangent = tangent;
     }
 
     public Vertex(Vector3fc pos, Vector4fc color, Vector2fc texCoords) {

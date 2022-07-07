@@ -52,6 +52,10 @@ public class Utils {
                     buffer.putFloat(vertex.normal.x());
                     buffer.putFloat(vertex.normal.y());
                     buffer.putFloat(vertex.normal.z());
+                } else if (location == Material.VertexLayout.BindingDescription.TANGENT) {
+                    buffer.putFloat(vertex.tangent.x());
+                    buffer.putFloat(vertex.tangent.y());
+                    buffer.putFloat(vertex.tangent.z());
                 }
             }
         }

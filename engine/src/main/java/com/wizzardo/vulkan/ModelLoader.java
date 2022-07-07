@@ -297,6 +297,7 @@ public class ModelLoader {
     private static Mesh readMesh(AIMesh mesh) {
         AIVector3D.Buffer positions = requireNonNull(mesh.mVertices());
         AIVector3D.Buffer normals = mesh.mNormals();
+        AIVector3D.Buffer tangents = mesh.mTangents();
         AIColor4D.Buffer colors = mesh.mColors(0);
         AIVector3D.Buffer textureCoords = mesh.mTextureCoords(0);
 
@@ -309,12 +310,14 @@ public class ModelLoader {
             AIColor4D color = colors != null ? colors.get(i) : null;
             AIVector3D texCoords = textureCoords != null ? textureCoords.get(i) : null;
             AIVector3D normal = normals != null ? normals.get(i) : null;
+            AIVector3D tangent = tangents != null ? tangents.get(i) : null;
 
             Vertex vertex = new Vertex(
                     new Vector3f(position.x(), position.y(), position.z()),
                     color != null ? new Vector4f(color.r(), color.g(), color.b(), color.a()) : null,
                     texCoords != null ? new Vector2f(texCoords.x(), texCoords.y()) : null,
-                    normal != null ? new Vector3f(normal.x(), normal.y(), normal.z()) : null
+                    normal != null ? new Vector3f(normal.x(), normal.y(), normal.z()) : null,
+                    tangent != null ? new Vector3f(tangent.x(), tangent.y(), tangent.z()) : null
             );
             vertices[i] = vertex;
         }
