@@ -178,7 +178,7 @@ public class JavaFxToTextureBridge {
                 setVertexShader("shaders/javafx.vert.spv");
                 setFragmentShader("shaders/javafx.frag.spv");
 //        material.setTextureImage(textureImage);
-                setTextureImage(textureHolder.textureImage);
+                addTextureImage(textureHolder.textureImage);
                 setTextureSampler(application.createTextureSampler(1));
 //                prepare(application, application.getGuiViewport());
             }

@@ -10,13 +10,13 @@ public class UnshadedTexture extends Material {
     public UnshadedTexture(TextureImage textureImage) {
         setVertexShader("shaders/unshaded_texture.vert.spv");
         setFragmentShader("shaders/unshaded_texture.frag.spv");
-        setTextureImage(textureImage);
+        addTextureImage(textureImage);
         vertexLayout = new VertexLayout(VertexLayout.BindingDescription.POSITION, VertexLayout.BindingDescription.TEXTURE_COORDINATES);
     }
 
     @Override
     public void prepare(VulkanApplication application, Viewport viewport) {
-        setTextureSampler(application.createTextureSampler(getTextureImage().mipLevels));
+        setTextureSampler(application.createTextureSampler(getTextures().get(0).mipLevels));
         super.prepare(application, viewport);
     }
 }

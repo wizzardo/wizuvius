@@ -7,6 +7,7 @@ import org.lwjgl.vulkan.VkDevice;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -21,18 +22,19 @@ public class Material {
             VertexLayout.BindingDescription.TEXTURE_COORDINATES
     );
 
-    String vertexShader;
-    String fragmentShader;
-    TextureImage textureImage;
-    long textureSampler;
+    protected String vertexShader;
+    protected String fragmentShader;
+    protected List<TextureImage> textures = Collections.emptyList();
+    protected long textureSampler;
     protected VertexLayout vertexLayout = DEFAULT_VERTEX_LAYOUT;
+    protected boolean withUBO = true;
 
     public List<VulkanDescriptorSets.DescriptorSetLayoutBinding> bindings;
     public long descriptorSetLayout;
     public long graphicsPipeline;
     public long pipelineLayout;
 
-    public VertexLayout getVertexLayout(){
+    public VertexLayout getVertexLayout() {
         return vertexLayout;
     }
 
@@ -52,12 +54,14 @@ public class Material {
         this.fragmentShader = fragmentShader;
     }
 
-    public TextureImage getTextureImage() {
-        return textureImage;
+    public List<TextureImage> getTextures() {
+        return textures;
     }
 
-    public void setTextureImage(TextureImage textureImage) {
-        this.textureImage = textureImage;
+    public void addTextureImage(TextureImage textureImage) {
+        if (textures.isEmpty())
+            textures = new ArrayList<>();
+        textures.add(textureImage);
     }
 
     public long getTextureSampler() {
@@ -100,7 +104,10 @@ public class Material {
         try {
             vkDestroySampler(device, textureSampler, null);
             vkDestroyDescriptorSetLayout(device, descriptorSetLayout, null);
-            textureImage.cleanup(device);
+            for (int i = 0; i < textures.size(); i++) {
+                TextureImage texture = textures.get(i);
+                texture.cleanup(device);
+            }
         } finally {
             descriptorSetLayout = 0;
             textureSampler = 0;
@@ -110,9 +117,13 @@ public class Material {
     public void prepare(VulkanApplication application, Viewport viewport) {
         if (descriptorSetLayout == 0L) {
             VulkanDescriptorSets.DescriptorSetLayoutBuilder layoutBuilder = new VulkanDescriptorSets.DescriptorSetLayoutBuilder();
-            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUBO(0, VK_SHADER_STAGE_VERTEX_BIT));
-            if (textureImage != null)
-                layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT, textureImage.textureImageView, textureSampler));
+            if (withUBO)
+                layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUBO(0, VK_SHADER_STAGE_VERTEX_BIT));
+
+            for (int i = 0; i < textures.size(); i++) {
+                TextureImage texture = textures.get(i);
+                layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(layoutBuilder.bindings.size(), VK_SHADER_STAGE_FRAGMENT_BIT, texture.textureImageView, textureSampler));
+            }
 
             bindings = layoutBuilder.bindings;
             descriptorSetLayout = layoutBuilder.build(application.getDevice());
@@ -171,8 +182,7 @@ public class Material {
                 application.getDevice(),
                 vertShaderSPIRV,
                 fragShaderSPIRV,
-                viewport.getExtent(),
-                viewport.getRenderPass(),
+                viewport,
                 descriptorSetLayout,
                 vertexLayout
         );
@@ -204,6 +214,7 @@ public class Material {
         public enum BindingDescription {
             POSITION(3),
             NORMAL(3),
+            TANGENT(3),
             COLOR(3),
             TEXTURE_COORDINATES(2),
             ;

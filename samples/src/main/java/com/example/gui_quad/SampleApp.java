@@ -25,10 +25,10 @@ public class SampleApp extends AbstractSampleApp {
 //                    new Vertex(new Vector3f(0.5f, -0.5f, 0f), new Vector3f(0.0f, 0.5f, 0.0f), new Vector2f(0.0f, 0.0f)),
 //                    new Vertex(new Vector3f(0.5f, 0.5f, 0f), new Vector3f(0.0f, 0.0f, 0.0f), new Vector2f(0.0f, 1.0f)),
 //                    new Vertex(new Vector3f(-0.5f, 0.5f, 0f), new Vector3f(0.5f, 0.5f, 0.0f), new Vector2f(1.0f, 1.0f))
-                    new Vertex(new Vector3f(0, 0, 0f), new Vector3f(1, 0.0f, 0.0f), new Vector2f(1.0f, 0.0f)),
-                    new Vertex(new Vector3f(1, 0, 0f), new Vector3f(0.0f, 1, 0.0f), new Vector2f(0.0f, 0.0f)),
-                    new Vertex(new Vector3f(1, 1, 0f), new Vector3f(0.0f, 0.0f, 0.0f), new Vector2f(0.0f, 1.0f)),
-                    new Vertex(new Vector3f(0, 1, 0f), new Vector3f(1, 1, 0.0f), new Vector2f(1.0f, 1.0f))
+                    new Vertex(new Vector3f(0, 0, 0f), new Vector4f(1, 0.0f, 0.0f, 1f), new Vector2f(1.0f, 0.0f)),
+                    new Vertex(new Vector3f(1, 0, 0f), new Vector4f(0.0f, 1, 0.0f, 1f), new Vector2f(0.0f, 0.0f)),
+                    new Vertex(new Vector3f(1, 1, 0f), new Vector4f(0.0f, 0.0f, 0.0f, 1f), new Vector2f(0.0f, 1.0f)),
+                    new Vertex(new Vector3f(0, 1, 0f), new Vector4f(1, 1, 0.0f, 1f), new Vector2f(1.0f, 1.0f))
             };
 
             int[] indices = {
@@ -36,7 +36,7 @@ public class SampleApp extends AbstractSampleApp {
                     0, 3, 2
             };
 
-            TextureImage textureImage = createTextureImage(folder + "/textures/texture.jpg");
+            TextureImage textureImage = Unchecked.call(() -> createTextureImage(folder + "/textures/texture.jpg"));
             Geometry geometry = new Geometry(new Mesh(vertices, indices), new UnshadedTexture(textureImage));
             geometry.getLocalTransform().setScale(400f);
             geometry.getLocalTransform().setTranslation(100, 100, 0);

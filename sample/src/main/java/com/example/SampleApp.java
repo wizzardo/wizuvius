@@ -44,7 +44,7 @@ public class SampleApp extends DesktopVulkanApplication {
         material = new Material();
         material.setVertexShader("shaders/tri.vert.spv");
         material.setFragmentShader("shaders/tri.frag.spv");
-        material.setTextureImage(textureImage);
+        material.addTextureImage(textureImage);
         material.setTextureSampler(createTextureSampler(textureImage.mipLevels));
 
 
