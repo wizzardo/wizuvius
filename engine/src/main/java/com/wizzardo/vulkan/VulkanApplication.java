@@ -21,6 +21,7 @@ import com.wizzardo.tools.io.FileTools;
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.input.InputsManager;
+import com.wizzardo.vulkan.misc.AtomicArrayList;
 import com.wizzardo.vulkan.scene.Geometry;
 
 import com.wizzardo.vulkan.scene.Node;
@@ -120,6 +121,7 @@ public abstract class VulkanApplication extends Thread {
     protected volatile int extentHeight;
     protected boolean framebufferResize;
     protected Queue<Runnable> tasks = new ConcurrentLinkedQueue<>();
+    protected AtomicArrayList<Alteration> alterations = new AtomicArrayList<>(16);
 
 
     protected long previousPrintFps = System.nanoTime();
@@ -727,6 +729,7 @@ public abstract class VulkanApplication extends Thread {
 
         printAllocation("drawFrame before simpleUpdate");
         simpleUpdate(tpf);
+        processAlterations(tpf);
         printAllocation("drawFrame after simpleUpdate");
 
         updateModelUniformBuffers(tempData, imageIndex);
@@ -778,13 +781,36 @@ public abstract class VulkanApplication extends Thread {
 
         currentFrame = (currentFrame + 1) % syncObjects.getFramesCount();
 
-//        fpsCounter++;
-//        if (time - previousPrintFps >= 1_000_000_000) {
-//            System.out.println("fps: " + fpsCounter);
-//            fpsCounter = 0;
-//            previousPrintFps = time;
-//        }
+        fpsCounter++;
+        if (time - previousPrintFps >= 1_000_000_000) {
+            System.out.println("fps: " + fpsCounter);
+            fpsCounter = 0;
+            previousPrintFps = time;
+        }
         printAllocation("drawFrame end");
+    }
+
+    private void processAlterations(double tpf) {
+        int shiftLeftTo = -1;
+        for (int i = 0; i < alterations.size(); i++) {
+            Alteration alteration = alterations.get(i);
+            if (!alteration.onUpdate(tpf)) {
+                if (shiftLeftTo == -1)
+                    shiftLeftTo = i;
+            } else {
+                if (shiftLeftTo != -1) {
+                    alterations.set(shiftLeftTo, alteration);
+                    shiftLeftTo++;
+                }
+            }
+        }
+        while (shiftLeftTo > 0 && shiftLeftTo < alterations.size()) {
+            alterations.remove(alterations.size() - 1);
+        }
+    }
+
+    public void addAlteration(Alteration alteration) {
+        alterations.add(alteration);
     }
 
     protected void recordCommands(DrawFrameTempData tempData, int imageIndex) {

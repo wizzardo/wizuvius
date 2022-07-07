@@ -13,6 +13,7 @@ public class Camera {
     protected Viewport viewport;
     protected int screenWidth;
     protected int screenHeight;
+    protected Vector3f upVector = new Vector3f(Vectors.UNIT_Z);
 
     public void setProjection(float fieldOfViewDegreesY, float aspectRation, float nearPlane, float farPlane) {
         projection.setPerspective((float) Math.toRadians(fieldOfViewDegreesY), aspectRation, nearPlane, farPlane);
@@ -57,6 +58,10 @@ public class Camera {
 
     public Vector3f getLeft(Vector3f dest) {
         return getRotationColumn(rotation, 0, dest);
+    }
+
+    public Vector3f getUpVector(){
+        return upVector;
     }
 
     /**
@@ -152,6 +157,7 @@ public class Camera {
         Vector3f newDirection = vars.vect1;
         Vector3f newUp = vars.vect2;
         Vector3f newLeft = vars.vect3;
+        upVector.set(worldUpVector);
 
         newDirection.set(pos).sub(location).normalize();
 

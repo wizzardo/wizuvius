@@ -8,12 +8,17 @@ import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-public class TempVars {
+public class TempVars implements AutoCloseable {
 
     /**
      * Allow X instances of TempVars in a single thread.
      */
     private static final int STACK_SIZE = 5;
+
+    @Override
+    public void close() {
+        release();
+    }
 
     /**
      * <code>TempVarsStack</code> contains a stack of TempVars.
