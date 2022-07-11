@@ -696,7 +696,7 @@ public abstract class VulkanApplication extends Thread {
     protected void drawFrame(DrawFrameTempData tempData) {
         printAllocation("drawFrame start");
         Frame thisFrame = getCurrentFrame();
-//        vkWaitForFences(device, thisFrame.pFence(tempData.pLong), true, UINT64_MAX);
+        vkWaitForFences(device, thisFrame.pFence(tempData.pLong), true, UINT64_MAX);
 
         int vkResult = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, thisFrame.imageAvailableSemaphore(), VK_NULL_HANDLE, tempData.pImageIndex);
         if (vkResult == VK_ERROR_OUT_OF_DATE_KHR || vkResult == VK_SUBOPTIMAL_KHR) {
@@ -714,7 +714,7 @@ public abstract class VulkanApplication extends Thread {
 
         Frame prev = syncObjects.byImage(imageIndex);
         if (prev != null) {
-//            vkWaitForFences(device, prev.pFence(tempData.pLong), true, UINT64_MAX);
+            vkWaitForFences(device, prev.pFence(tempData.pLong), true, UINT64_MAX);
             prev.onFinish();
             prev.resetListeners();
         }
@@ -738,7 +738,7 @@ public abstract class VulkanApplication extends Thread {
         recordCommands(tempData, imageIndex);
         printAllocation("drawFrame after recordCommands");
 
-//        vkResetFences(device, thisFrame.pFence(tempData.pLong));
+        vkResetFences(device, thisFrame.pFence(tempData.pLong));
 
         VkSubmitInfo submitInfo = tempData.submitInfo;
         submitInfo.sType(VK_STRUCTURE_TYPE_SUBMIT_INFO);
@@ -752,9 +752,9 @@ public abstract class VulkanApplication extends Thread {
         VkCommandBuffer guiCommandBuffer = guiViewport.getCommandBuffers().get(imageIndex);
         submitInfo.pCommandBuffers(tempData.pCommandBuffers.put(0, commandBuffer).put(1, guiCommandBuffer));
 
-//        if ((vkResult = vkQueueSubmit(graphicsQueue, submitInfo, thisFrame.fence())) != VK_SUCCESS) {
-        if ((vkResult = vkQueueSubmit(graphicsQueue, submitInfo, 0)) != VK_SUCCESS) {
-//            vkResetFences(device, thisFrame.pFence(tempData.pLong));
+        if ((vkResult = vkQueueSubmit(graphicsQueue, submitInfo, thisFrame.fence())) != VK_SUCCESS) {
+//        if ((vkResult = vkQueueSubmit(graphicsQueue, submitInfo, 0)) != VK_SUCCESS) {
+            vkResetFences(device, thisFrame.pFence(tempData.pLong));
             throw new RuntimeException("Failed to submit draw command buffer: " + vkResult);
         }
 
