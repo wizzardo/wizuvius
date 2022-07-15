@@ -3,6 +3,7 @@ package com.wizzardo.vulkan.input;
 import com.wizzardo.vulkan.DesktopVulkanApplication;
 import org.lwjgl.system.MemoryStack;
 
+import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -36,6 +37,18 @@ public class GlfwInputsManager implements InputsManager {
                 windowScaleY = scaleY.get();
             }
 
+            glfwSetWindowFocusCallback(application.getWindow(), (window, focused) -> {
+                if (focused) {
+                    try (MemoryStack stack = stackPush()) {
+                        DoubleBuffer posX = stack.callocDouble(1);
+                        DoubleBuffer posY = stack.callocDouble(1);
+                        glfwGetCursorPos(window, posX, posY);
+                        mousePositionX = posX.get();
+                        mousePositionY = posY.get();
+                    }
+                }
+            });
+
             glfwSetKeyCallback(application.getWindow(), (window, key, scancode, action, mods) -> {
 //                            System.out.println(key + " " + scancode + " " + action + " " + mods);
                 boolean pressed = action == GLFW_PRESS;
@@ -58,8 +71,8 @@ public class GlfwInputsManager implements InputsManager {
             });
 
             glfwSetCursorPosCallback(application.getWindow(), (window, xpos, ypos) -> {
-                mousePositionX = xpos * windowScaleX;
-                mousePositionY = ypos * windowScaleY;
+                mousePositionX = xpos;
+                mousePositionY = ypos;
                 try {
                     List<MouseMoveListener> list = this.mouseMoveListeners;
                     for (int i = 0; i < list.size(); i++) {

@@ -8,7 +8,6 @@ import org.joml.Vector3fc;
 public class OrbitCameraAlteration implements Alteration {
 
     protected final Quaternionf rotation = new Quaternionf();
-    protected float[] mousePosition = new float[2];
     protected float rotationSpeed = (float) (Math.PI / 2);
     protected final float[] angles = new float[2];
     protected float zoomDistance = -1;
@@ -42,8 +41,8 @@ public class OrbitCameraAlteration implements Alteration {
         zoomDistance = location.length();
 
         lookAt(camera, focusPoint);
+        float[] mousePosition = new float[2];
 
-        float extentScale = app.getExtentWidth() * 1f / app.getWidth();
         app.getInputsManager().addMouseMoveListener((x, y) -> {
             if (!app.getInputsManager().getKeyState().isMouseButtonPressed(0))
                 return;
@@ -61,8 +60,8 @@ public class OrbitCameraAlteration implements Alteration {
         });
         app.getInputsManager().addMouseButtonListener((x, y, button, pressed) -> {
             if (button == 0 && pressed) {
-                mousePosition[0] = (float) x / extentScale;
-                mousePosition[1] = (float) y / extentScale;
+                mousePosition[0] = (float) x;
+                mousePosition[1] = (float) y;
             }
         });
         app.getInputsManager().addScrollListener((x, y, scrollX, scrollY) -> {
