@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.file.Files;
@@ -49,6 +50,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public abstract class VulkanApplication extends Thread {
@@ -126,6 +128,7 @@ public abstract class VulkanApplication extends Thread {
 
     protected long previousPrintFps = System.nanoTime();
     protected long previousFrame = System.nanoTime();
+    protected long fpsLimit = -1;
     protected int fpsCounter = 0;
     protected boolean development = new File("build.gradle").exists();
 
@@ -162,6 +165,21 @@ public abstract class VulkanApplication extends Thread {
 
     public int getExtentHeight() {
         return extentHeight;
+    }
+
+    public void setFpsLimit(int limit) {
+        if (limit > 0) {
+            fpsLimit = 1000 / limit;
+        } else {
+            fpsLimit = -1;
+        }
+    }
+
+    public int getFpsLimit() {
+        if (fpsLimit == -1)
+            return -1;
+        else
+            return (int) (1000 / fpsLimit);
     }
 
     public void resize(int width, int height) {
@@ -754,6 +772,15 @@ public abstract class VulkanApplication extends Thread {
         syncObjects.setByImage(imageIndex, thisFrame);
 
         long time = System.nanoTime();
+        if (fpsLimit > 0 && (time - previousFrame) / 1000 / 1000 < fpsLimit) {
+            long wait = fpsLimit - (time - previousFrame) / 1000 / 1000;
+            try {
+                Thread.sleep(wait);
+            } catch (InterruptedException ignored) {
+            }
+            time = System.nanoTime();
+        }
+
         double tpf = (time - previousFrame) / 1_000_000_000.0;
         previousFrame = time;
 
