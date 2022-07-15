@@ -104,6 +104,12 @@ public class VulkanDevices {
         return formatProperties;
     }
 
+    public static VkPhysicalDeviceProperties getPhysicalDeviceProperties(MemoryStack stack, VkPhysicalDevice device) {
+        VkPhysicalDeviceProperties properties = VkPhysicalDeviceProperties.malloc(stack);
+        vkGetPhysicalDeviceProperties(device, properties);
+        return properties;
+    }
+
     public static boolean isFormatSupported(MemoryStack stack, VkPhysicalDevice device, int format) {
         VkFormatProperties properties = getDeviceFormatProperties(stack, device, format);
         return (properties.optimalTilingFeatures() & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) != 0 && (properties.optimalTilingFeatures() & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0;

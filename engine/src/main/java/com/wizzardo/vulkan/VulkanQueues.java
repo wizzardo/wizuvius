@@ -27,6 +27,7 @@ public class VulkanQueues {
                 int flags = vkQueueFamilyProperties.queueFlags();
                 if ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) {
                     indices.setGraphicsFamily(i);
+                    indices.setGraphicsQueueTimestampValidBits(vkQueueFamilyProperties.timestampValidBits());
                 }
                 if ((flags & VK_QUEUE_TRANSFER_BIT) != 0) {
                     indices.setTransferFamily(i);

@@ -98,6 +98,9 @@ public abstract class VulkanApplication extends Thread {
     protected VkPhysicalDevice physicalDevice;
     protected VkDevice device;
 
+    protected int graphicsQueueTimestampValidBits;
+    protected float timestampPeriod;
+    protected long timestampQueryPool;
     protected VkQueue graphicsQueue;
     protected VkQueue transferQueue;
     protected VkQueue presentQueue;
@@ -315,6 +318,24 @@ public abstract class VulkanApplication extends Thread {
         QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(physicalDevice, surface);
         device = VulkanDevices.createLogicalDevice(physicalDevice, indices);
         graphicsQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());
+
+        //https://stackoverflow.com/questions/67358235/how-to-measure-execution-time-of-vulkan-pipeline
+        graphicsQueueTimestampValidBits = indices.getGraphicsQueueTimestampValidBits();
+        if (graphicsQueueTimestampValidBits > 0) {
+            try (MemoryStack stack = stackPush()) {
+                VkPhysicalDeviceProperties properties = VulkanDevices.getPhysicalDeviceProperties(stack, physicalDevice);
+                timestampPeriod = properties.limits().timestampPeriod();
+
+                VkQueryPoolCreateInfo poolCreateInfo = VkQueryPoolCreateInfo.calloc(stack);
+                poolCreateInfo.queryCount(100);
+                poolCreateInfo.queryType(VK_QUERY_TYPE_TIMESTAMP);
+
+                LongBuffer longs = stack.longs(0);
+                vkCreateQueryPool(device, poolCreateInfo,null, longs);
+                timestampQueryPool = longs.get(0);
+            }
+        }
+
         transferQueue = VulkanQueues.createQueue(device, indices.getTransferFamily());
 //        System.out.println(indices);
 //        presentQueue = createPresentQueue(device, indices.presentFamily);

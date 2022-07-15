@@ -6,6 +6,7 @@ public class QueueFamilyIndices {
     private Integer graphicsFamily;
     private Integer transferFamily;
     private Integer computeFamily;
+    private int graphicsQueueTimestampValidBits;
 
     public boolean isComplete() {
         return graphicsFamily != null;
@@ -56,5 +57,13 @@ public class QueueFamilyIndices {
                 ", transferFamily=" + transferFamily +
                 ", computeFamily=" + computeFamily +
                 '}';
+    }
+
+    public void setGraphicsQueueTimestampValidBits(int timestampValidBits) {
+        graphicsQueueTimestampValidBits = timestampValidBits;
+    }
+
+    public int getGraphicsQueueTimestampValidBits() {
+        return graphicsQueueTimestampValidBits;
     }
 }
