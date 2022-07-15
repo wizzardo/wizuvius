@@ -45,7 +45,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
-import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
@@ -206,7 +205,11 @@ public abstract class VulkanApplication extends Thread {
     public TextureImage createTextureImage(String asset) throws IOException {
         String assetLowerCase = asset.toLowerCase();
         if (assetLowerCase.endsWith(".ktx")) {
-            return TextureLoader.createTextureImageKtx(physicalDevice, device, transferQueue, commandPool, getAssetFile(asset));
+            File assetFile = Unchecked.ignore(() -> getAssetFile(asset), null);
+            if (assetFile == null)
+                return createTextureImage(asset + "2");
+
+            return TextureLoader.createTextureImageKtx(physicalDevice, device, transferQueue, commandPool, assetFile);
         } else if (assetLowerCase.endsWith(".ktx2")) {
             return TextureLoader.createTextureImageKtx2(physicalDevice, device, transferQueue, commandPool, getAssetFile(asset));
         }
@@ -912,24 +915,23 @@ public abstract class VulkanApplication extends Thread {
         public final VkCommandBufferBeginInfo beginInfo;
         public final VkRenderPassBeginInfo renderPassInfo;
         public final VkRect2D renderArea;
-        public final VkClearValue.Buffer clearValues;
+        public final VkClearValue.Buffer[] clearValues;
         public final LongBuffer pLong_1;
         public final LongBuffer pLong_2;
 
         public CommandBufferTempData(MemoryStack stack) {
-            this(stack, 1);
-        }
-
-        public CommandBufferTempData(MemoryStack stack, int clearColors) {
             beginInfo = VkCommandBufferBeginInfo.calloc(stack);
             renderPassInfo = VkRenderPassBeginInfo.calloc(stack);
             renderArea = VkRect2D.calloc(stack);
 
-            clearValues = VkClearValue.calloc(clearColors + 1, stack);
-            for (int i = 0; i < clearColors; i++) {
-                clearValues.get(i).color().float32(stack.floats(0.0f));
+            clearValues = new VkClearValue.Buffer[4];
+            for (int i = 0; i < clearValues.length; i++) {
+                VkClearValue.Buffer clearValues = this.clearValues[i] = VkClearValue.calloc(i + 1, stack);
+                for (int j = 0; j < i; j++) {
+                    clearValues.get(j).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 0.0f));
+                }
+                clearValues.get(clearValues.capacity() - 1).depthStencil().set(1.0f, 0);
             }
-            clearValues.get(clearValues.capacity() - 1).depthStencil().set(1.0f, 0);
 
             pLong_1 = stack.longs(0);
             pLong_2 = stack.longs(0);
@@ -950,6 +952,15 @@ public abstract class VulkanApplication extends Thread {
             throw new RuntimeException("Failed to begin recording command buffer");
         }
 
+        recordCommands(viewport, imageIndex, tempData, commandBuffer);
+
+        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+            throw new RuntimeException("Failed to record command buffer");
+        }
+        return commandBuffer;
+    }
+
+    protected void recordCommands(Viewport viewport, int imageIndex, CommandBufferTempData tempData, VkCommandBuffer commandBuffer) {
         VkRenderPassBeginInfo renderPassInfo = tempData.renderPassInfo;
         renderPassInfo.sType(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
         renderPassInfo.renderPass(viewport.getRenderPass());
@@ -958,7 +969,7 @@ public abstract class VulkanApplication extends Thread {
         renderArea.offset(viewport.getOffset());
         renderArea.extent(viewport.getExtent());
         renderPassInfo.renderArea(renderArea);
-        renderPassInfo.pClearValues(tempData.clearValues);
+        renderPassInfo.pClearValues(tempData.clearValues[viewport.colorAttachmentsCount]);
         renderPassInfo.framebuffer(viewport.getSwapChainFramebuffers().get(imageIndex));
 
         vkCmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -974,10 +985,6 @@ public abstract class VulkanApplication extends Thread {
         recordCommandPreviousGraphicsPipeline = 0L;
 
         vkCmdEndRenderPass(commandBuffer);
-        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-            throw new RuntimeException("Failed to record command buffer");
-        }
-        return commandBuffer;
     }
 
     protected void recordGeometryDraw(Node node, VkCommandBuffer commandBuffer, CommandBufferTempData tempData, int imageIndex) {

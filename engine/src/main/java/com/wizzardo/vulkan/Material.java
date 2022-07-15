@@ -5,6 +5,7 @@ import com.wizzardo.tools.misc.Unchecked;
 import org.lwjgl.vulkan.VkDevice;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -122,16 +123,15 @@ public class Material {
     }
 
     public void prepare(VulkanApplication application, Viewport viewport) {
-        if (descriptorSetLayout == 0L) {
-            VulkanDescriptorSets.DescriptorSetLayoutBuilder layoutBuilder = new VulkanDescriptorSets.DescriptorSetLayoutBuilder();
-            if (withUBO)
-                layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUBO(0, VK_SHADER_STAGE_VERTEX_BIT));
-
-            for (int i = 0; i < textures.size(); i++) {
-                TextureImage texture = textures.get(i);
-                layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(layoutBuilder.bindings.size(), VK_SHADER_STAGE_FRAGMENT_BIT, texture.textureImageView, textureSampler));
+        for (int i = 0; i < textures.size(); i++) {
+            try {
+                textures.get(i).load(application);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-
+        }
+        if (descriptorSetLayout == 0L) {
+            VulkanDescriptorSets.DescriptorSetLayoutBuilder layoutBuilder = prepareDescriptorSetLayoutBuilder();
             bindings = layoutBuilder.bindings;
             descriptorSetLayout = layoutBuilder.build(application.getDevice());
         }
@@ -144,6 +144,18 @@ public class Material {
             graphicsPipeline = pipeline.graphicsPipeline;
         }
 
+    }
+
+    protected VulkanDescriptorSets.DescriptorSetLayoutBuilder prepareDescriptorSetLayoutBuilder() {
+        VulkanDescriptorSets.DescriptorSetLayoutBuilder layoutBuilder = new VulkanDescriptorSets.DescriptorSetLayoutBuilder();
+        if (withUBO)
+            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUBO(0, VK_SHADER_STAGE_VERTEX_BIT));
+
+        for (int i = 0; i < textures.size(); i++) {
+            TextureImage texture = textures.get(i);
+            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(layoutBuilder.bindings.size(), VK_SHADER_STAGE_FRAGMENT_BIT, texture.getTextureImageView(), textureSampler));
+        }
+        return layoutBuilder;
     }
 
     protected void addShaderChangeListener(VulkanApplication application, Viewport viewport) {

@@ -25,7 +25,6 @@ import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -413,7 +412,7 @@ public class JavaFxToTextureBridge {
                 application.getTransferQueue(),
                 application.getCommandPool(),
                 stagingBuffer.buffer,
-                dst.textureImage.textureImage,
+                dst.textureImage.getTextureImage(),
                 textureWidth,
                 textureHeight
         );

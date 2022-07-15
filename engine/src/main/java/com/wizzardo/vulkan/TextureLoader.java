@@ -6,6 +6,7 @@ import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
+import com.wizzardo.tools.misc.Stopwatch;
 import com.wizzardo.vulkan.misc.NativeLibraryHelper;
 import org.khronos.ktx.*;
 import org.lwjgl.PointerBuffer;
@@ -17,11 +18,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 public class TextureLoader {
 
     private static volatile boolean ktxInitialized = false;
+    protected static AtomicLong memoryUsed = new AtomicLong(0);
 
     public static void initKtxSupport() {
         if (ktxInitialized)
@@ -41,14 +44,19 @@ public class TextureLoader {
         }
     }
 
+    public static long getMemoryUsed() {
+        return memoryUsed.get();
+    }
+
     public static TextureImage createTextureImage(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue graphicsQueue, long commandPool, Supplier<ByteBuffer> dataLoader) {
         try (MemoryStack stack = stackPush()) {
             IntBuffer pWidth = stack.mallocInt(1);
             IntBuffer pHeight = stack.mallocInt(1);
             IntBuffer pChannels = stack.mallocInt(1);
 
+            Stopwatch stopwatch = new Stopwatch("stbi_load_from_memory");
             ByteBuffer pixels = stbi_load_from_memory(dataLoader.get(), pWidth, pHeight, pChannels, STBI_rgb_alpha);
-
+            System.out.println(stopwatch);
             if (pixels == null) {
                 throw new RuntimeException("Failed to load texture image");
             }
@@ -60,7 +68,8 @@ public class TextureLoader {
             int mipLevels = (int) Math.floor(log2(Math.max(width, height))) + 1;
 
             try {
-                return createTextureImage(physicalDevice, device, graphicsQueue, commandPool, pixels, width, height, imageSize, VK_FORMAT_R8G8B8A8_SRGB, mipLevels);
+//                return createTextureImage(physicalDevice, device, graphicsQueue, commandPool, pixels, width, height, imageSize, VK_FORMAT_R8G8B8A8_SRGB, mipLevels);
+                return createTextureImage(physicalDevice, device, graphicsQueue, commandPool, pixels, width, height, imageSize, VK_FORMAT_R8G8B8A8_UNORM, mipLevels);
             } finally {
                 stbi_image_free(pixels);
             }
@@ -134,7 +143,8 @@ public class TextureLoader {
 
             long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
 
-            return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView);
+            memoryUsed.addAndGet(imageSize);
+            return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView, imageSize);
         }
     }
 
@@ -151,7 +161,7 @@ public class TextureLoader {
         try (MemoryStack stack = stackPush()) {
             LongBuffer pTextureImage = stack.mallocLong(1);
             LongBuffer pTextureImageMemory = stack.mallocLong(1);
-            VulkanImages.createImage(physicalDevice, device, width, height,
+            long memorySize = VulkanImages.createImage(physicalDevice, device, width, height,
                     mipLevels,
                     format,
                     VK_IMAGE_TILING_OPTIMAL,
@@ -179,7 +189,8 @@ public class TextureLoader {
 
             long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
 
-            return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView);
+            memoryUsed.addAndGet(memorySize);
+            return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView, memorySize);
         }
     }
 
@@ -370,6 +381,7 @@ public class TextureLoader {
         String fileCanonicalPath = assetFile.getCanonicalPath();
         KtxTexture2 texture = null;
         try {
+            Stopwatch stopwatch = new Stopwatch("KtxTexture2.createFromNamedFile");
             texture = KtxTexture2.createFromNamedFile(fileCanonicalPath, KtxTextureCreateFlagBits.LOAD_IMAGE_DATA_BIT);
 
             if (texture.getVkFormat() == VkFormat.VK_FORMAT_UNDEFINED) {
@@ -407,6 +419,7 @@ public class TextureLoader {
             }
 
             ByteBuffer buffer = getData(texture);
+            System.out.println(stopwatch);
             int mipLevels = 1;
             return TextureLoader.createTextureImage(physicalDevice,
                     device,

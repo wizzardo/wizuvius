@@ -1,6 +1,7 @@
 package com.wizzardo.vulkan;
 
 import com.wizzardo.vulkan.material.predefined.UnshadedColor;
+import com.wizzardo.vulkan.material.predefined.UnshadedTexture;
 import com.wizzardo.vulkan.misc.IntArrayBuilder;
 import com.wizzardo.vulkan.scene.Geometry;
 import com.wizzardo.vulkan.scene.Node;
@@ -15,10 +16,8 @@ import java.io.IOException;
 import java.lang.Math;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static org.lwjgl.assimp.Assimp.*;
@@ -44,7 +43,7 @@ public class ModelLoader {
         Assimp.aiAttachLogStream(logStream);
     }
 
-    public static Spatial loadModel(File file, int flags) {
+    public static Node loadModel(File file, int flags) {
         try (AIScene scene = aiImportFile(file.getAbsolutePath(), flags)) {
             if (scene == null || scene.mRootNode() == null) {
                 throw new RuntimeException("Could not load model: " + aiGetErrorString());
@@ -52,7 +51,7 @@ public class ModelLoader {
 
             Node s = new Node();
             List<AssimpMaterial> materials = processMaterials(scene);
-            processNode(scene.mRootNode(), scene, s, materials);
+            processNode(scene.mRootNode(), scene, s, convertMaterials(materials));
             return s;
         }
     }
@@ -61,7 +60,7 @@ public class ModelLoader {
         ByteBuffer load(String asset) throws IOException;
     }
 
-    public static Spatial loadModel(ByteBuffer file, int flags, String hint) {
+    public static Node loadModel(ByteBuffer file, int flags, String hint) {
         try (AIScene scene = aiImportFileFromMemory(file, flags, hint)) {
             if (scene == null || scene.mRootNode() == null) {
                 throw new RuntimeException("Could not load model: " + aiGetErrorString());
@@ -69,12 +68,12 @@ public class ModelLoader {
 
             Node s = new Node();
             List<AssimpMaterial> materials = processMaterials(scene);
-            processNode(scene.mRootNode(), scene, s, materials);
+            processNode(scene.mRootNode(), scene, s, convertMaterials(materials));
             return s;
         }
     }
 
-    public static Spatial loadModel(String path, int flags, AssetLoader assetLoader) {
+    public static Node loadModel(String path, int flags, AssetLoader assetLoader) {
         AIFileIO fileIO = AIFileIO.create();
 
         try {
@@ -138,8 +137,15 @@ public class ModelLoader {
                     throw new RuntimeException("Could not load model: " + aiGetErrorString());
                 }
 
+                String folder = path.substring(0, path.lastIndexOf('/'));
                 Node s = new Node();
-                List<AssimpMaterial> materials = processMaterials(scene);
+                List<AssimpMaterial> assimpMaterials = processMaterials(scene);
+                List<Material> materials = convertMaterials(assimpMaterials);
+                for (Material material : materials) {
+                    for (TextureImage texture : material.getTextures()) {
+                        texture.setFilename(folder + "/" + texture.filename);
+                    }
+                }
                 processNode(scene.mRootNode(), scene, s, materials);
                 return s;
             }
@@ -151,7 +157,21 @@ public class ModelLoader {
         }
     }
 
-    private static void processNode(AINode node, AIScene scene, Node s, List<AssimpMaterial> materials) {
+    protected static List<Material> convertMaterials(List<AssimpMaterial> assimpMaterials) {
+        return assimpMaterials.stream().map(assimpMaterial -> {
+            if (!assimpMaterial.textures.isEmpty()) {
+                assimpMaterial.textures.sort(Comparator.comparingInt(o -> o.type.ordinal()));
+                UnshadedTexture material = new UnshadedTexture();
+                for (TextureInfo texture : assimpMaterial.textures) {
+                    material.addTextureImage(new TextureImage(texture.fileName, texture.type.toTextureImageType()));
+                }
+                return material;
+            }
+            return new UnshadedColor(new Vector3f(assimpMaterial.diffuseColor.x, assimpMaterial.diffuseColor.y, assimpMaterial.diffuseColor.z));
+        }).collect(Collectors.toList());
+    }
+
+    private static void processNode(AINode node, AIScene scene, Node s, List<Material> materials) {
         s.setName(node.mName().dataString());
         AIMatrix4x4 transformation = node.mTransformation();
         Matrix4f matrix4f = new Matrix4f(
@@ -180,7 +200,7 @@ public class ModelLoader {
 
     }
 
-    private static void processNodeMeshes(AIScene scene, AINode node, Node n, List<AssimpMaterial> materials) {
+    private static void processNodeMeshes(AIScene scene, AINode node, Node n, List<Material> materials) {
         IntBuffer meshIndices = node.mMeshes();
         for (int i = 0; i < meshIndices.capacity(); i++) {
             processMesh(scene, meshIndices.get(i), n, materials);
@@ -211,6 +231,23 @@ public class ModelLoader {
 //                System.out.println(key + ": " + materialProperty.mType() + "    " + value);
 //            }
 //            System.out.println();
+
+
+            for (int type = 1; type <= 21; type++) {
+                int count = aiGetMaterialTextureCount(material, type);
+                if (count != 0) {
+                    if (m.textures.isEmpty())
+                        m.textures = new ArrayList<>(count);
+                    System.out.println("material has a texture of type: " + TextureType.valueOf(type) + "; count: " + count);
+                    for (int j = 0; j < count; j++) {
+                        aiGetMaterialTexture(material, type, j, string, (IntBuffer) null, null, null, null, null, null);
+                        System.out.println("\t" + string.dataString());
+                        m.textures.add(new TextureInfo(string.dataString(), TextureType.valueOf(type)));
+                    }
+                }
+            }
+
+
             int result = aiGetMaterialColor(material, AI_MATKEY_COLOR_AMBIENT, aiTextureType_NONE, 0, colour);
             if (result == 0) {
                 m.ambientColor = new Vector4f(colour.r(), colour.g(), colour.b(), colour.a());
@@ -279,17 +316,17 @@ public class ModelLoader {
         return materials;
     }
 
-    private static void processMesh(AIScene scene, int meshIndex, Node model, List<AssimpMaterial> materials) {
+    private static void processMesh(AIScene scene, int meshIndex, Node model, List<Material> materials) {
 
         PointerBuffer pMeshes = scene.mMeshes();
         AIMesh mesh = AIMesh.create(pMeshes.get(meshIndex));
 
-        AssimpMaterial assimpMaterial = materials.get(mesh.mMaterialIndex());
+        Material material = materials.get(mesh.mMaterialIndex());
 
         Geometry geometry = new Geometry(
                 mesh.mName().dataString(),
                 readMesh(mesh),
-                new UnshadedColor(new Vector3f(assimpMaterial.diffuseColor.x, assimpMaterial.diffuseColor.y, assimpMaterial.diffuseColor.z))
+                material
         );
         model.attachChild(geometry);
     }
@@ -333,7 +370,19 @@ public class ModelLoader {
             }
         }
 
-        return new Mesh(vertices, indecies.toIntArray(true));
+        Mesh m = new Mesh(vertices, indecies.toIntArray(true));
+
+        AIAABB aabb = mesh.mAABB();
+        if (aabb != null) {
+            AIVector3D min = aabb.mMin();
+            AIVector3D max = aabb.mMax();
+            m.setBoundingBox(new Mesh.BoundingBox(
+                    new Vector3f(min.x(), min.y(), min.z()),
+                    new Vector3f(max.x(), max.y(), max.z())
+            ));
+        }
+
+        return m;
     }
 
 
@@ -352,6 +401,64 @@ public class ModelLoader {
         public float opacity;
         public float alphacutoff;
         public int shadingModel;
+        public List<TextureInfo> textures = Collections.emptyList();
+    }
+
+    public static class TextureInfo {
+        public final String fileName;
+        public final TextureType type;
+
+        public TextureInfo(String fileName, TextureType type) {
+            this.fileName = fileName;
+            this.type = type;
+        }
+    }
+
+    public enum TextureType {
+        NONE(0),
+        DIFFUSE(1),
+        SPECULAR(2),
+        AMBIENT(3),
+        EMISSIVE(4),
+        HEIGHT(5),
+        NORMALS(6),
+        SHININESS(7),
+        OPACITY(8),
+        DISPLACEMENT(9),
+        LIGHTMAP(10),
+        REFLECTION(11),
+        BASE_COLOR(12),
+        NORMAL_CAMERA(13),
+        EMISSION_COLOR(14),
+        METALNESS(15),
+        DIFFUSE_ROUGHNESS(16),
+        AMBIENT_OCCLUSION(17),
+        SHEEN(19),
+        CLEARCOAT(20),
+        TRANSMISSION(21),
+        UNKNOWN(18);
+
+        public final int assimpType;
+
+        private static final TextureType[] byAssimpType = new TextureType[22];
+
+        TextureType(int assimpType) {
+            this.assimpType = assimpType;
+        }
+
+        static {
+            for (TextureType type : values()) {
+                byAssimpType[type.assimpType] = type;
+            }
+        }
+
+        public static TextureType valueOf(int assimpType) {
+            return byAssimpType[assimpType];
+        }
+
+        public TextureImage.Type toTextureImageType() {
+            return TextureImage.Type.valueOf(name());
+        }
     }
 
 }

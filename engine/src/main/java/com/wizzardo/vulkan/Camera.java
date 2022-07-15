@@ -24,6 +24,10 @@ public class Camera {
         this.projection.set(projection);
     }
 
+    public Matrix4f getProjection(){
+        return projection;
+    }
+
     public Vector3f getLocation() {
         return location;
     }
@@ -374,5 +378,13 @@ public class Camera {
         TempVars vars = TempVars.get();
         Camera.fromFrame(location, getDirection(vars.vect10), getUp(vars.vect9), view, vars);
         vars.release();
+    }
+
+    public float getNearPlane() {
+        return projection.perspectiveNear();
+    }
+
+    public float getFarPlane() {
+        return projection.perspectiveFar();
     }
 }

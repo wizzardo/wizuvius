@@ -8,15 +8,20 @@ import com.wizzardo.vulkan.VulkanApplication;
 public class UnshadedTexture extends Material {
 
     public UnshadedTexture(TextureImage textureImage) {
+        this();
+        addTextureImage(textureImage);
+    }
+
+    public UnshadedTexture() {
         setVertexShader("shaders/unshaded_texture.vert.spv");
         setFragmentShader("shaders/unshaded_texture.frag.spv");
-        addTextureImage(textureImage);
         vertexLayout = new VertexLayout(VertexLayout.BindingDescription.POSITION, VertexLayout.BindingDescription.TEXTURE_COORDINATES);
     }
 
     @Override
     public void prepare(VulkanApplication application, Viewport viewport) {
-        setTextureSampler(application.createTextureSampler(getTextures().get(0).mipLevels));
+        if (textureSampler == 0)
+            setTextureSampler(application.createTextureSampler(getTextures().get(0).getMipLevels()));
         super.prepare(application, viewport);
     }
 }

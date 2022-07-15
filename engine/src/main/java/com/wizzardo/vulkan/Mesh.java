@@ -1,5 +1,6 @@
 package com.wizzardo.vulkan;
 
+import org.joml.Vector3f;
 import org.lwjgl.vulkan.VkDevice;
 
 public class Mesh {
@@ -9,6 +10,7 @@ public class Mesh {
     private BufferHolder vertexBuffer;
     private BufferHolder indexBuffer;
     private int indicesLength;
+    protected BoundingBox boundingBox;
 
     public Mesh(Vertex[] vertices, int[] indices) {
         this.vertices = vertices;
@@ -73,6 +75,32 @@ public class Mesh {
             vertexBuffer = Utils.createVertexBuffer(app.physicalDevice, app.device, app.transferQueue, app.commandPool, getVertices(), vertexLayout);
             indexBuffer = Utils.createIndexBuffer(app.physicalDevice, app.device, app.transferQueue, app.commandPool, getIndices());
             setIndicesLength(getIndices().length);
+        }
+    }
+
+    public BoundingBox getBoundingBox() {
+        return boundingBox;
+    }
+
+    public void setBoundingBox(BoundingBox boundingBox) {
+        this.boundingBox = boundingBox;
+    }
+
+    public static class BoundingBox {
+        public final Vector3f min;
+        public final Vector3f max;
+
+        public BoundingBox(Vector3f min, Vector3f max) {
+            this.min = min;
+            this.max = max;
+        }
+
+        @Override
+        public String toString() {
+            return "BoundingBox{" +
+                    "min=" + min +
+                    ", max=" + max +
+                    '}';
         }
     }
 }

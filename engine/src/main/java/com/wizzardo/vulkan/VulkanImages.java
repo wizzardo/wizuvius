@@ -34,7 +34,7 @@ public class VulkanImages {
         }
     }
 
-    static void createImage(
+    static long createImage(
             VkPhysicalDevice physicalDevice,
             VkDevice device,
             int width,
@@ -72,7 +72,8 @@ public class VulkanImages {
 
             VkMemoryAllocateInfo allocInfo = VkMemoryAllocateInfo.calloc(stack);
             allocInfo.sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
-            allocInfo.allocationSize(memRequirements.size());
+            long memorySize = memRequirements.size();
+            allocInfo.allocationSize(memorySize);
             allocInfo.memoryTypeIndex(VulkanBuffers.findMemoryTypeIndex(physicalDevice, memRequirements.memoryTypeBits(), memProperties));
 
             if (vkAllocateMemory(device, allocInfo, null, pTextureImageMemory) != VK_SUCCESS) {
@@ -80,6 +81,7 @@ public class VulkanImages {
             }
 
             vkBindImageMemory(device, pTextureImage.get(0), pTextureImageMemory.get(0), 0);
+            return memorySize;
         }
     }
 
