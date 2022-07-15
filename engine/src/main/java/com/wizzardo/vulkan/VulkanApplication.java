@@ -507,7 +507,8 @@ public abstract class VulkanApplication extends Thread {
             ByteBuffer fragShaderSPIRV,
             Viewport viewport,
             long descriptorSetLayout,
-            Material.VertexLayout vertexLayout
+            Material.VertexLayout vertexLayout,
+            List<Material.SpecializationConstantInfo> constants
     ) {
         try (MemoryStack stack = stackPush()) {
             long vertShaderModule = ShaderLoader.createShaderModule(device, vertShaderSPIRV);
@@ -522,12 +523,14 @@ public abstract class VulkanApplication extends Thread {
             vertShaderStageInfo.stage(VK_SHADER_STAGE_VERTEX_BIT);
             vertShaderStageInfo.module(vertShaderModule);
             vertShaderStageInfo.pName(entryPoint);
+            vertShaderStageInfo.pSpecializationInfo(prepareSpecializationInfo(0, constants, stack));
 
             VkPipelineShaderStageCreateInfo fragShaderStageInfo = shaderStages.get(1);
             fragShaderStageInfo.sType(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
             fragShaderStageInfo.stage(VK_SHADER_STAGE_FRAGMENT_BIT);
             fragShaderStageInfo.module(fragShaderModule);
             fragShaderStageInfo.pName(entryPoint);
+            fragShaderStageInfo.pSpecializationInfo(prepareSpecializationInfo(1, constants, stack));
 
             // ===> VERTEX STAGE <===
 
@@ -666,6 +669,33 @@ public abstract class VulkanApplication extends Thread {
 //            fragShaderSPIRV.free();
             return new CreateGraphicsPipelineResult(pipelineLayout, graphicsPipeline);
         }
+    }
+
+    protected static VkSpecializationInfo prepareSpecializationInfo(int stage, List<Material.SpecializationConstantInfo> constants, MemoryStack stack) {
+        List<Material.SpecializationConstantInfo> list = constants.stream()
+                .filter(it -> it.stage == stage)
+                .sorted(Comparator.comparingInt(value -> value.constantId))
+                .collect(Collectors.toList());
+        if (!list.isEmpty()) {
+            VkSpecializationInfo specializationInfo = VkSpecializationInfo.calloc(stack);
+            VkSpecializationMapEntry.Buffer entries = VkSpecializationMapEntry.calloc(list.size(), stack);
+            int offset = 0;
+            for (int i = 0; i < list.size(); i++) {
+                VkSpecializationMapEntry entry = entries.get(i);
+                Material.SpecializationConstantInfo info = list.get(i);
+                entry.set(info.constantId, offset, info.size);
+                offset += info.size;
+            }
+            ByteBuffer buffer = ByteBuffer.allocateDirect(offset).order(ByteOrder.nativeOrder());
+            for (int i = 0; i < list.size(); i++) {
+                list.get(i).accept(buffer);
+            }
+            buffer.rewind();
+            specializationInfo.pMapEntries(entries);
+            specializationInfo.pData(buffer);
+            return specializationInfo;
+        }
+        return null;
     }
 
 

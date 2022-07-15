@@ -28,6 +28,7 @@ public class Material {
     protected long textureSampler;
     protected VertexLayout vertexLayout = DEFAULT_VERTEX_LAYOUT;
     protected boolean withUBO = true;
+    protected List<SpecializationConstantInfo> constants = Collections.emptyList();
 
     public List<VulkanDescriptorSets.DescriptorSetLayoutBinding> bindings;
     public long descriptorSetLayout;
@@ -62,6 +63,12 @@ public class Material {
         if (textures.isEmpty())
             textures = new ArrayList<>();
         textures.add(textureImage);
+    }
+
+    public void addSpecializationConstant(SpecializationConstantInfo constantInfo) {
+        if (constants.isEmpty())
+            constants = new ArrayList<>();
+        constants.add(constantInfo);
     }
 
     public long getTextureSampler() {
@@ -184,9 +191,36 @@ public class Material {
                 fragShaderSPIRV,
                 viewport,
                 descriptorSetLayout,
-                vertexLayout
+                vertexLayout,
+                constants
         );
         return pipeline;
+    }
+
+    public abstract static class SpecializationConstantInfo implements Consumer<ByteBuffer> {
+        final int stage;
+        final int constantId;
+        final int size;
+
+        public SpecializationConstantInfo(int stage, int constantId, int size) {
+            this.stage = stage;
+            this.constantId = constantId;
+            this.size = size;
+        }
+
+        public static class Int extends SpecializationConstantInfo {
+            protected int value;
+
+            public Int(int stage, int constantId, int value) {
+                super(stage, constantId, Integer.BYTES);
+                this.value = value;
+            }
+
+            @Override
+            public void accept(ByteBuffer byteBuffer) {
+                byteBuffer.putInt(value);
+            }
+        }
     }
 
     public static class VertexLayout {
