@@ -316,6 +316,26 @@ public class TextureLoader {
         }
     }
 
+    public static void copyBufferToImage(MemoryStack stack, VkCommandBuffer commandBuffer, long buffer, long image, KtxTexture texture) {
+        int width = texture.getBaseWidth();
+        int height = texture.getBaseHeight();
+        VkBufferImageCopy.Buffer regions = VkBufferImageCopy.calloc(texture.getNumLevels(), stack);
+        for (int i = 0; i < regions.capacity(); i++) {
+            VkBufferImageCopy region = regions.get(i);
+            region.bufferOffset(texture.getImageOffset(i, 0, 0));
+            region.bufferRowLength(0);   // Tightly packed
+            region.bufferImageHeight(0);  // Tightly packed
+            region.imageSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+            region.imageSubresource().mipLevel(i);
+            region.imageSubresource().baseArrayLayer(0);
+            region.imageSubresource().layerCount(1);
+            region.imageOffset().set(0, 0, 0);
+            region.imageExtent(VkExtent3D.calloc(stack).set(width >> i, height >> i, 1));
+        }
+
+        vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regions);
+    }
+
     public static double log2(double n) {
         return Math.log(n) / Math.log(2);
     }
@@ -357,19 +377,7 @@ public class TextureLoader {
         KtxTexture1 texture = null;
         try {
             texture = KtxTexture1.createFromNamedFile(fileCanonicalPath, KtxTextureCreateFlagBits.LOAD_IMAGE_DATA_BIT);
-            ByteBuffer buffer = getData(texture);
-            int mipLevels = 1;
-            return TextureLoader.createTextureImage(physicalDevice,
-                    device,
-                    transferQueue,
-                    commandPool,
-                    buffer,
-                    texture.getBaseWidth(),
-                    texture.getBaseHeight(),
-                    buffer.capacity(),
-                    VkFormat.VK_FORMAT_R8G8B8A8_UNORM,
-                    mipLevels
-            );
+            return createTextureImage(physicalDevice, device, transferQueue, commandPool, texture, VkFormat.VK_FORMAT_R8G8B8A8_UNORM, null);
         } finally {
             cleanupAfterKtxRead(assetFile, fileCanonicalPath, texture);
         }
@@ -418,22 +426,124 @@ public class TextureLoader {
                     throw new IllegalStateException("Couldn't find transcode format");
             }
 
-            ByteBuffer buffer = getData(texture);
+            return createTextureImage(physicalDevice, device, transferQueue, commandPool, texture, texture.getVkFormat(), stopwatch);
+        } finally {
+            cleanupAfterKtxRead(assetFile, fileCanonicalPath, texture);
+        }
+    }
+
+    private static TextureImage createTextureImage(
+            VkPhysicalDevice physicalDevice,
+            VkDevice device,
+            VkQueue transferQueue,
+            long commandPool,
+            KtxTexture texture,
+            int format,
+            Stopwatch stopwatch
+    ) {
+        ByteBuffer buffer = getAllData(texture);
+        if (stopwatch != null)
             System.out.println(stopwatch);
-            int mipLevels = 1;
-            return TextureLoader.createTextureImage(physicalDevice,
+
+        try (MemoryStack stack = stackPush()) {
+            LongBuffer pStagingBuffer = stack.mallocLong(1);
+            LongBuffer pStagingBufferMemory = stack.mallocLong(1);
+            int imageSize = buffer.capacity();
+            int width = texture.getBaseWidth();
+            int height = texture.getBaseHeight();
+            int mipLevels = texture.getNumLevels();
+
+            VulkanBuffers.createBuffer(
+                    physicalDevice,
+                    device,
+                    imageSize,
+                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                    pStagingBuffer,
+                    pStagingBufferMemory);
+
+
+            PointerBuffer data = stack.mallocPointer(1);
+            vkMapMemory(device, pStagingBufferMemory.get(0), 0, imageSize, 0, data);
+            memcpy(data.getByteBuffer(0, (int) imageSize), buffer, imageSize);
+            vkUnmapMemory(device, pStagingBufferMemory.get(0));
+
+
+            LongBuffer pTextureImage = stack.mallocLong(1);
+            LongBuffer pTextureImageMemory = stack.mallocLong(1);
+            VulkanImages.createImage(physicalDevice, device, width, height,
+                    mipLevels,
+                    format,
+                    VK_IMAGE_TILING_OPTIMAL,
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                    pTextureImage,
+                    pTextureImageMemory);
+
+            long textureImage = pTextureImage.get(0);
+            long textureImageMemory = pTextureImageMemory.get(0);
+
+            VulkanImages.transitionImageLayout(
                     device,
                     transferQueue,
                     commandPool,
-                    buffer,
-                    texture.getBaseWidth(),
-                    texture.getBaseHeight(),
-                    buffer.capacity(),
-                    texture.getVkFormat(),
+                    textureImage,
+                    format,
+                    VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     mipLevels
             );
-        } finally {
-            cleanupAfterKtxRead(assetFile, fileCanonicalPath, texture);
+
+            VkCommandBuffer commandBuffer = VulkanCommands.beginSingleTimeCommands(device, commandPool);
+
+            VkImageMemoryBarrier.Buffer barrier = VkImageMemoryBarrier.calloc(1, stack);
+            barrier.sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+            barrier.image(textureImage);
+            barrier.subresourceRange().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+            barrier.subresourceRange().baseMipLevel(0);
+            barrier.subresourceRange().layerCount(1);
+            barrier.subresourceRange().levelCount(mipLevels);
+            barrier.srcAccessMask(VK_ACCESS_HOST_WRITE_BIT);
+            barrier.dstAccessMask(VK_ACCESS_SHADER_READ_BIT);
+            barrier.oldLayout(VK_IMAGE_LAYOUT_PREINITIALIZED);
+            barrier.newLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+            vkCmdPipelineBarrier(
+                    commandBuffer,
+                    VK_PIPELINE_STAGE_HOST_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    0,
+                    null,
+                    null,
+                    barrier
+            );
+
+            copyBufferToImage(stack, commandBuffer, pStagingBuffer.get(0), textureImage, texture);
+
+            barrier.srcAccessMask(VK_ACCESS_TRANSFER_WRITE_BIT);
+            barrier.dstAccessMask(VK_ACCESS_SHADER_READ_BIT);
+            barrier.oldLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            barrier.newLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            vkCmdPipelineBarrier(
+                    commandBuffer,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                    0,
+                    null,
+                    null,
+                    barrier
+            );
+
+
+            VulkanCommands.endSingleTimeCommands(device, transferQueue, commandPool, commandBuffer);
+
+            vkDestroyBuffer(device, pStagingBuffer.get(0), null);
+            vkFreeMemory(device, pStagingBufferMemory.get(0), null);
+
+            long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+
+            memoryUsed.addAndGet(imageSize);
+            return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView, imageSize);
         }
     }
 
@@ -445,15 +555,10 @@ public class TextureLoader {
             assetFile.delete();
     }
 
-    private static ByteBuffer getData(KtxTexture texture) {
+    private static ByteBuffer getAllData(KtxTexture texture) {
         byte[] bytes = texture.getData();
-        int level = 0;
-        int layer = 0;
-        int faceSlice = 0;
-        long imageOffset = texture.getImageOffset(level, layer, faceSlice);
-        int imageSize = texture.getImageSize(0);
-        ByteBuffer buffer = ByteBuffer.allocateDirect(imageSize);
-        buffer.put(bytes, (int) imageOffset, imageSize);
+        ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
+        buffer.put(bytes);
         buffer.flip();
         return buffer;
     }
