@@ -419,16 +419,32 @@ public class JavaFxToTextureBridge {
     }
 
     public void onMouseMove(int x, int y, int screenX, int screenY) {
+        KeyState keyState = application.getInputsManager().getKeyState();
+        int type = AbstractEvents.MOUSEEVENT_MOVED;
+        int button = AbstractEvents.MOUSEEVENT_NONE_BUTTON;
+        boolean primaryBtnDown = keyState.isMouseButtonPressed(0);
+        boolean middleBtnDown = keyState.isMouseButtonPressed(2);
+        boolean secondaryBtnDown = keyState.isMouseButtonPressed(1);
+        if (primaryBtnDown) {
+            type = AbstractEvents.MOUSEEVENT_DRAGGED;
+            button = AbstractEvents.MOUSEEVENT_PRIMARY_BUTTON;
+        } else if (secondaryBtnDown) {
+            type = AbstractEvents.MOUSEEVENT_DRAGGED;
+            button = AbstractEvents.MOUSEEVENT_SECONDARY_BUTTON;
+        } else if (middleBtnDown) {
+            type = AbstractEvents.MOUSEEVENT_DRAGGED;
+            button = AbstractEvents.MOUSEEVENT_MIDDLE_BUTTON;
+        }
         onMouseMotionEvent(
                 x,
                 y,
                 screenX,
                 screenY,
-                AbstractEvents.MOUSEEVENT_MOVED,
-                AbstractEvents.MOUSEEVENT_NONE_BUTTON,
-                false,
-                false,
-                false
+                type,
+                button,
+                primaryBtnDown,
+                middleBtnDown,
+                secondaryBtnDown
         );
     }
 

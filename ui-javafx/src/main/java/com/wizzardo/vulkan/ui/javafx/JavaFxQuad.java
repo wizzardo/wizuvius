@@ -62,7 +62,7 @@ public class JavaFxQuad extends Geometry {
         inputsManager.addMouseButtonListener((x, y, button, pressed) -> {
             Camera camera = bridge.application.getGuiViewport().getCamera();
             camera.getWorldCoordinates((float) x, (float) y, 0f, mousePosition, tempMatrix);
-            mousePosition.sub(getLocalTransform().getTranslation());
+            mousePosition.mul(extentScale).sub(getLocalTransform().getTranslation());
 
             if (isMouseOver(mousePosition.x, mousePosition.y) || (isDragging[0] && !pressed)) {
 
