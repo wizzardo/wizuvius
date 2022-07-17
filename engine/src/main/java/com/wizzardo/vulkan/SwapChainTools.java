@@ -236,14 +236,26 @@ class SwapChainTools {
     private static VkSurfaceFormatKHR chooseSwapSurfaceFormat(VkSurfaceFormatKHR.Buffer availableFormats) {
 //        availableFormats.stream()
 //                .forEach(availableFormat -> {
-//                    Log.v(TAG, "availableFormat: " + availableFormat.format() + " " + availableFormat.colorSpace());
+//                    System.out.println("availableFormat: " + availableFormat.format() + " " + availableFormat.colorSpace());
 //                });
         List<VkSurfaceFormatKHR> formats = availableFormats.stream()
                 .collect(Collectors.toList());
+
+        boolean support10BitsColors = formats.stream()
+                .anyMatch(availableFormat -> availableFormat.format() == VK_FORMAT_A2R10G10B10_UNORM_PACK32
+                        || availableFormat.format() == VK_FORMAT_A2B10G10R10_UNORM_PACK32
+                );
+
         VkSurfaceFormatKHR formatKHR = formats.stream()
 //                .filter(availableFormat -> availableFormat.format() == VK_FORMAT_B8G8R8_UNORM)
 //                .filter(availableFormat -> availableFormat.format() == VK_FORMAT_R8G8B8A8_SRGB)
-                .filter(availableFormat -> availableFormat.format() == VK_FORMAT_B8G8R8A8_SRGB || availableFormat.format() == VK_FORMAT_R8G8B8A8_SRGB)
+                .filter(availableFormat -> {
+                    int format = availableFormat.format();
+                    if (support10BitsColors)
+                        return format == VK_FORMAT_A2R10G10B10_UNORM_PACK32 || format == VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+                    else
+                        return format == VK_FORMAT_B8G8R8A8_SRGB || format == VK_FORMAT_R8G8B8A8_SRGB;
+                })
                 .filter(availableFormat -> availableFormat.colorSpace() == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
                 .findFirst()
                 .orElse(availableFormats.get(0));
