@@ -2,6 +2,8 @@ package com.wizzardo.vulkan;
 
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
+import com.wizzardo.vulkan.material.SpecializationConstantInfo;
+import com.wizzardo.vulkan.material.Uniform;
 import org.lwjgl.vulkan.VkDevice;
 
 import java.io.File;
@@ -30,6 +32,7 @@ public class Material {
     protected VertexLayout vertexLayout = DEFAULT_VERTEX_LAYOUT;
     protected boolean withUBO = true;
     protected List<SpecializationConstantInfo> constants = Collections.emptyList();
+    protected List<Uniform> uniforms = Collections.emptyList();
 
     public List<VulkanDescriptorSets.DescriptorSetLayoutBinding> bindings;
     public long descriptorSetLayout;
@@ -70,6 +73,18 @@ public class Material {
         if (constants.isEmpty())
             constants = new ArrayList<>();
         constants.add(constantInfo);
+    }
+
+    public void addUniform(Uniform uniform) {
+        if (uniforms.isEmpty())
+            uniforms = new ArrayList<>();
+        uniforms.add(uniform);
+    }
+
+    public void updateUniforms() {
+        for (int i = 0; i < uniforms.size(); i++) {
+            uniforms.get(i).update();
+        }
     }
 
     public long getTextureSampler() {
@@ -116,6 +131,10 @@ public class Material {
                 TextureImage texture = textures.get(i);
                 texture.cleanup(device);
             }
+            for (int i = 0; i < uniforms.size(); i++) {
+                Uniform uniform = uniforms.get(i);
+                uniform.cleanup(device);
+            }
         } finally {
             descriptorSetLayout = 0;
             textureSampler = 0;
@@ -154,6 +173,11 @@ public class Material {
         for (int i = 0; i < textures.size(); i++) {
             TextureImage texture = textures.get(i);
             layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(layoutBuilder.bindings.size(), VK_SHADER_STAGE_FRAGMENT_BIT, texture.getTextureImageView(), textureSampler));
+        }
+        for (int i = 0; i < uniforms.size(); i++) {
+            Uniform uniform = uniforms.get(i);
+            uniform.update();
+            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUniformBuffer(uniform.binding, uniform.stage, uniform.uniformBuffer));
         }
         return layoutBuilder;
     }
@@ -207,32 +231,6 @@ public class Material {
                 constants
         );
         return pipeline;
-    }
-
-    public abstract static class SpecializationConstantInfo implements Consumer<ByteBuffer> {
-        final int stage;
-        final int constantId;
-        final int size;
-
-        public SpecializationConstantInfo(int stage, int constantId, int size) {
-            this.stage = stage;
-            this.constantId = constantId;
-            this.size = size;
-        }
-
-        public static class Int extends SpecializationConstantInfo {
-            protected int value;
-
-            public Int(int stage, int constantId, int value) {
-                super(stage, constantId, Integer.BYTES);
-                this.value = value;
-            }
-
-            @Override
-            public void accept(ByteBuffer byteBuffer) {
-                byteBuffer.putInt(value);
-            }
-        }
     }
 
     public static class VertexLayout {

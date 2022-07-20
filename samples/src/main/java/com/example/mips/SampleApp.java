@@ -3,6 +3,7 @@ package com.example.mips;
 import com.example.AbstractSampleApp;
 import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.*;
+import com.wizzardo.vulkan.material.Uniform;
 import com.wizzardo.vulkan.scene.Geometry;
 import com.wizzardo.vulkan.scene.shape.Box;
 import com.wizzardo.vulkan.ui.javafx.JavaFxQuad;
@@ -17,13 +18,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import org.joml.Vector3f;
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.system.MemoryStack;
 
-import java.nio.ByteBuffer;
-import java.util.function.Consumer;
-
-import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class SampleApp extends AbstractSampleApp {
@@ -42,24 +37,7 @@ public class SampleApp extends AbstractSampleApp {
 
         TextureImage textureImage = Unchecked.call(() -> createTextureImage(folder + "/textures/colored_glass_rgba.ktx2"));
 
-        UniformBuffers lodBiasUniform = UniformBuffers.createUniformBuffers(
-                getPhysicalDevice(),
-                getDevice(),
-                1,
-                Float.BYTES
-        );
-
-        Consumer<Integer> loadBiasUpdater = value -> {
-            try (MemoryStack stack = stackPush()) {
-                PointerBuffer data = stack.mallocPointer(1);
-                long memoryAddress = lodBiasUniform.uniformBuffersMemory.get(0);
-                vkMapMemory(device, memoryAddress, 0, lodBiasUniform.size, 0, data);
-
-                ByteBuffer buffer = data.getByteBuffer(0, lodBiasUniform.size);
-                buffer.putFloat(value.floatValue());
-                vkUnmapMemory(device, memoryAddress);
-            }
-        };
+        Uniform.Float lodBiasUniform = new Uniform.Float(physicalDevice, device, VK_SHADER_STAGE_FRAGMENT_BIT, 2, 0);
 
         {
             Material material = new Material() {
@@ -75,11 +53,7 @@ public class SampleApp extends AbstractSampleApp {
 
                     addTextureImage(textureImage);
                     setTextureSampler(createTextureSampler(textureImage.getMipLevels()));
-                }
-                @Override
-                protected VulkanDescriptorSets.DescriptorSetLayoutBuilder prepareDescriptorSetLayoutBuilder() {
-                    return super.prepareDescriptorSetLayoutBuilder()
-                            .append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUniformBuffer(2, VK_SHADER_STAGE_FRAGMENT_BIT, lodBiasUniform));
+                    addUniform(lodBiasUniform);
                 }
             };
 
@@ -111,7 +85,7 @@ public class SampleApp extends AbstractSampleApp {
                     int n = newValue.intValue();
                     int o = oldValue.intValue();
                     if (o != n) {
-                        loadBiasUpdater.accept(n);
+                        lodBiasUniform.set(n);
                     }
                 });
 

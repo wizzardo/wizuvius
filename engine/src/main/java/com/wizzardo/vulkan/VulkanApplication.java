@@ -21,6 +21,7 @@ import com.wizzardo.tools.io.FileTools;
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.input.InputsManager;
+import com.wizzardo.vulkan.material.SpecializationConstantInfo;
 import com.wizzardo.vulkan.misc.AtomicArrayList;
 import com.wizzardo.vulkan.scene.Geometry;
 
@@ -550,7 +551,7 @@ public abstract class VulkanApplication extends Thread {
             Viewport viewport,
             long descriptorSetLayout,
             Material.VertexLayout vertexLayout,
-            List<Material.SpecializationConstantInfo> constants
+            List<SpecializationConstantInfo> constants
     ) {
         try (MemoryStack stack = stackPush()) {
             long vertShaderModule = ShaderLoader.createShaderModule(device, vertShaderSPIRV);
@@ -713,8 +714,8 @@ public abstract class VulkanApplication extends Thread {
         }
     }
 
-    protected static VkSpecializationInfo prepareSpecializationInfo(int stage, List<Material.SpecializationConstantInfo> constants, MemoryStack stack) {
-        List<Material.SpecializationConstantInfo> list = constants.stream()
+    protected static VkSpecializationInfo prepareSpecializationInfo(int stage, List<SpecializationConstantInfo> constants, MemoryStack stack) {
+        List<SpecializationConstantInfo> list = constants.stream()
                 .filter(it -> it.stage == stage)
                 .sorted(Comparator.comparingInt(value -> value.constantId))
                 .collect(Collectors.toList());
@@ -724,7 +725,7 @@ public abstract class VulkanApplication extends Thread {
             int offset = 0;
             for (int i = 0; i < list.size(); i++) {
                 VkSpecializationMapEntry entry = entries.get(i);
-                Material.SpecializationConstantInfo info = list.get(i);
+                SpecializationConstantInfo info = list.get(i);
                 entry.set(info.constantId, offset, info.size);
                 offset += info.size;
             }
@@ -797,7 +798,7 @@ public abstract class VulkanApplication extends Thread {
 
         long time = System.nanoTime();
         if (fpsLimit > 0 && (time - previousFrame) / 1000 / 1000 < fpsLimit) {
-            long wait = fpsLimit - (time - previousFrame) / 1000 / 1000;
+            long wait = fpsLimit - (time - previousFrame) / 1000 / 1000 - 1;
             try {
                 Thread.sleep(wait);
             } catch (InterruptedException ignored) {
@@ -813,7 +814,7 @@ public abstract class VulkanApplication extends Thread {
         processAlterations(tpf);
         printAllocation("drawFrame after simpleUpdate");
 
-        updateModelUniformBuffers(tempData, imageIndex);
+        updateModelUniformBuffers(imageIndex);
         printAllocation("drawFrame after updateModelUniformBuffers");
 
         recordCommands(tempData, imageIndex);
@@ -899,9 +900,9 @@ public abstract class VulkanApplication extends Thread {
         recordCommands(guiViewport, imageIndex, tempData.commandBufferTempData);
     }
 
-    protected void updateModelUniformBuffers(DrawFrameTempData tempData, int imageIndex) {
-        mainViewport.updateModelUniformBuffers(this, imageIndex, tempData.pPointerBuffer);
-        guiViewport.updateModelUniformBuffers(this, imageIndex, tempData.pPointerBuffer);
+    protected void updateModelUniformBuffers(int imageIndex) {
+        mainViewport.updateModelUniformBuffers(this, imageIndex);
+        guiViewport.updateModelUniformBuffers(this, imageIndex);
     }
 
     public Frame getCurrentFrame() {

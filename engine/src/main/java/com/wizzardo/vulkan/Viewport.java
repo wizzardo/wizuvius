@@ -3,23 +3,17 @@ package com.wizzardo.vulkan;
 import static org.lwjgl.vulkan.VK10.vkDestroyFramebuffer;
 import static org.lwjgl.vulkan.VK10.vkDestroyRenderPass;
 import static org.lwjgl.vulkan.VK10.vkFreeCommandBuffers;
-import static org.lwjgl.vulkan.VK10.vkMapMemory;
-import static org.lwjgl.vulkan.VK10.vkUnmapMemory;
 
 import com.wizzardo.vulkan.scene.Geometry;
 import com.wizzardo.vulkan.scene.Node;
 
 import com.wizzardo.vulkan.scene.Spatial;
 import org.joml.Matrix4f;
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.system.MemoryHelpers;
-import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkExtent2D;
 import org.lwjgl.vulkan.VkOffset2D;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,7 +27,6 @@ public class Viewport {
     protected List<Geometry> geometries = new ArrayList<>();
     protected VkExtent2D extent;
     protected VkOffset2D offset = VkOffset2D.create().set(0, 0);
-    protected ByteBuffer byteBufferPointer = MemoryUtil.memByteBufferSafe(-1, 0);
     protected int colorAttachmentsCount = 1;
     protected boolean colorBlendingEnabled = true;
 
@@ -165,7 +158,7 @@ public class Viewport {
         }
     }
 
-    public void updateModelUniformBuffers(VulkanApplication app, int imageIndex, PointerBuffer data) {
+    public void updateModelUniformBuffers(VulkanApplication app, int imageIndex) {
 //        if (geometries.isEmpty())
 //            return;
 
@@ -174,20 +167,20 @@ public class Viewport {
 
         for (int i = 0; i < geometries.size(); i++) {
             Geometry geometry = geometries.get(i);
-            updateModelUniformBuffer(app, imageIndex, geometry, data, byteBufferPointer);
+            updateModelUniformBuffer(app, imageIndex, geometry);
         }
 
-        updateModelUniformBuffers(app, imageIndex, data, scene);
+        updateModelUniformBuffers(app, imageIndex, scene);
     }
 
-    protected void updateModelUniformBuffers(VulkanApplication app, int imageIndex, PointerBuffer data, Node node) {
+    protected void updateModelUniformBuffers(VulkanApplication app, int imageIndex, Node node) {
         List<Spatial> children = node.getChildren();
         for (int i = 0; i < children.size(); i++) {
             Spatial spatial = children.get(i);
             if (spatial instanceof Geometry) {
-                updateModelUniformBuffer(app, imageIndex, (Geometry) spatial, data, byteBufferPointer);
+                updateModelUniformBuffer(app, imageIndex, (Geometry) spatial);
             } else if (spatial instanceof Node) {
-                updateModelUniformBuffers(app, imageIndex, data, (Node) spatial);
+                updateModelUniformBuffers(app, imageIndex, (Node) spatial);
             }
         }
     }
@@ -208,9 +201,7 @@ public class Viewport {
     protected void updateModelUniformBuffer(
             VulkanApplication app,
             int index,
-            Geometry geometry,
-            PointerBuffer data,
-            ByteBuffer byteBuffer
+            Geometry geometry
     ) {
         if (!geometry.isPrepared()) {
             geometry.getMaterial().prepare(app, this);
@@ -219,9 +210,8 @@ public class Viewport {
         }
 
         Transform transform = geometry.getLocalTransform();
-        UniformBuffers uniformBuffers = geometry.getUniformBuffers();
-        UniformBufferObject ubo = uniformBuffers.uniformBufferObject;
-        Matrix4f model = ubo.model;
+        ModelViewProjectionUniformBuffers modelViewProjectionUniformBuffers = geometry.getUniformBuffers();
+        Matrix4f model = modelViewProjectionUniformBuffers.modelTemp;
         model.identity();
 
         updateFromParent(geometry.getParent(), model);
@@ -229,12 +219,7 @@ public class Viewport {
         model.rotate(transform.getRotation());
         model.scale(transform.getScale());
 
-        long memoryAddress = uniformBuffers.uniformBuffersMemory.get(index);
-
-        vkMapMemory(app.getDevice(), memoryAddress, 0, UniformBufferObject.SIZEOF, 0, data);
-
-        MemoryHelpers.remapByteBuffer(byteBuffer, data.get(0), UniformBufferObject.SIZEOF);
-        Utils.memcpy(byteBuffer, model, camera.view, camera.projection);
-        vkUnmapMemory(app.getDevice(), memoryAddress);
+        UniformBuffer uniformBuffer = modelViewProjectionUniformBuffers.uniformBuffers.get(index);
+        Utils.memcpy(uniformBuffer.getBuffer(), model, camera.view, camera.projection);
     }
 }

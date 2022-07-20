@@ -39,7 +39,8 @@ public class SampleApp extends AbstractSampleApp {
             geometry.getLocalTransform().getRotation().setAngleAxis(this.getTime() * Math.toRadians(90) / 10f, 0.0f, 0.0f, 1.0f);
             if (geometry.getMaterial() instanceof UnshadedColor) {
                 UnshadedColor material = (UnshadedColor) geometry.getMaterial();
-                material.setColor(new Vector3f((float) (Math.sin(this.getTime() / 3)), (float) (Math.sin(this.getTime() / 2)), (float) Math.sin(this.getTime())));
+                material.getColor().set((float) (Math.sin(this.getTime() / 3)), (float) (Math.sin(this.getTime() / 2)), (float) Math.sin(this.getTime()));
+                material.updateUniforms();
             }
         }
     }
