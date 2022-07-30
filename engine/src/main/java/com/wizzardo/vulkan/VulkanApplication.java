@@ -117,6 +117,10 @@ public abstract class VulkanApplication extends Thread {
     protected long commandPool;
     protected DepthResources depthResources;
 
+    protected int bindlessTexturesCount = 4096;
+    protected boolean bindlessTexturesEnabled = true;
+    protected BindlessTexturePool bindlessTexturePool;
+
     protected SyncObjects syncObjects;
     protected long waitForSemaphore = 0;
     protected int currentFrame;
@@ -317,10 +321,10 @@ public abstract class VulkanApplication extends Thread {
         instance = getVulkanInstanceFactory().createInstance();
         debugMessenger = DebugTools.setupDebugMessenger(instance);
         surface = createSurface(instance);
-        physicalDevice = VulkanDevices.pickPhysicalDevice(instance, surface);
+        physicalDevice = VulkanDevices.pickPhysicalDevice(instance, surface, bindlessTexturesEnabled);
 
         QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(physicalDevice, surface);
-        device = VulkanDevices.createLogicalDevice(physicalDevice, indices);
+        device = VulkanDevices.createLogicalDevice(physicalDevice, indices, bindlessTexturesEnabled);
         graphicsQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());
 
         //https://stackoverflow.com/questions/67358235/how-to-measure-execution-time-of-vulkan-pipeline
@@ -335,7 +339,7 @@ public abstract class VulkanApplication extends Thread {
                 poolCreateInfo.queryType(VK_QUERY_TYPE_TIMESTAMP);
 
                 LongBuffer longs = stack.longs(0);
-                vkCreateQueryPool(device, poolCreateInfo,null, longs);
+                vkCreateQueryPool(device, poolCreateInfo, null, longs);
                 timestampQueryPool = longs.get(0);
             }
         }
@@ -352,10 +356,23 @@ public abstract class VulkanApplication extends Thread {
         inputsManager = initInputsManager();
 
         createSwapChainObjects();
+        createBindlessTexturesDescriptorSet();
 
         syncObjects = SwapChainTools.createSyncObjects(device, swapChainImages, MAX_FRAMES_IN_FLIGHT);
         mainViewport.setCommandBuffers(VulkanCommands.createEmptyCommandBuffers(device, commandPool, swapChainImages.size()));
         guiViewport.setCommandBuffers(VulkanCommands.createEmptyCommandBuffers(device, commandPool, swapChainImages.size()));
+    }
+
+    protected void createBindlessTexturesDescriptorSet() {
+        if (!bindlessTexturesEnabled)
+            return;
+
+        if (System.getProperties().getProperty("os.name", "").contains("Mac")) {
+            if (!System.getenv().getOrDefault("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", "").equals("1")) {
+                throw new IllegalArgumentException("Environment variables should contain MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=1 to use bindless textures on mac");
+            }
+        }
+        bindlessTexturePool = new BindlessTexturePool(device, physicalDevice, bindlessTexturesCount);
     }
 
 
@@ -520,6 +537,9 @@ public abstract class VulkanApplication extends Thread {
     protected void cleanup() {
         cleanupSwapChain();
 
+        if (bindlessTexturePool != null)
+            bindlessTexturePool.cleanup();
+
         mainViewport.cleanup(device, commandPool);
         guiViewport.cleanup(device, commandPool);
 
@@ -549,9 +569,9 @@ public abstract class VulkanApplication extends Thread {
             ByteBuffer vertShaderSPIRV,
             ByteBuffer fragShaderSPIRV,
             Viewport viewport,
-            long descriptorSetLayout,
             Material.VertexLayout vertexLayout,
-            List<SpecializationConstantInfo> constants
+            List<SpecializationConstantInfo> constants,
+            long... descriptorSetLayouts
     ) {
         try (MemoryStack stack = stackPush()) {
             long vertShaderModule = ShaderLoader.createShaderModule(device, vertShaderSPIRV);
@@ -669,7 +689,7 @@ public abstract class VulkanApplication extends Thread {
 
             VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkPipelineLayoutCreateInfo.calloc(stack);
             pipelineLayoutInfo.sType(VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
-            pipelineLayoutInfo.pSetLayouts(stack.longs(descriptorSetLayout));
+            pipelineLayoutInfo.pSetLayouts(stack.longs(descriptorSetLayouts));
 
             LongBuffer pPipelineLayout = stack.longs(VK_NULL_HANDLE);
 
@@ -919,6 +939,7 @@ public abstract class VulkanApplication extends Thread {
         public final VkClearValue.Buffer[] clearValues;
         public final LongBuffer pLong_1;
         public final LongBuffer pLong_2;
+        public final LongBuffer pLongs2_1;
 
         public CommandBufferTempData(MemoryStack stack) {
             beginInfo = VkCommandBufferBeginInfo.calloc(stack);
@@ -936,6 +957,7 @@ public abstract class VulkanApplication extends Thread {
 
             pLong_1 = stack.longs(0);
             pLong_2 = stack.longs(0);
+            pLongs2_1 = stack.longs(0, 0);
         }
     }
 
@@ -1004,13 +1026,16 @@ public abstract class VulkanApplication extends Thread {
         if (!geometry.isPrepared())
             return;
 
-        long graphicsPipeline = geometry.getMaterial().graphicsPipeline;
+        recordDraw(geometry.getMesh(), geometry.getMaterial(), geometry.getDescriptorSet(geometry.getMaterial(), imageIndex), commandBuffer, tempData);
+    }
+
+    protected void recordDraw(Mesh mesh, Material material, long descriptorSet, VkCommandBuffer commandBuffer, CommandBufferTempData tempData) {
+        long graphicsPipeline = material.graphicsPipeline;
         if (graphicsPipeline != recordCommandPreviousGraphicsPipeline) {
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
             recordCommandPreviousGraphicsPipeline = graphicsPipeline;
         }
 
-        Mesh mesh = geometry.getMesh();
         if (mesh != recordCommandPreviousMesh) {
             LongBuffer vertexBuffers = tempData.pLong_1.put(0, mesh.getVertexBuffer().buffer);
             LongBuffer offsets = tempData.pLong_2.put(0, 0l);
@@ -1019,14 +1044,25 @@ public abstract class VulkanApplication extends Thread {
             recordCommandPreviousMesh = mesh;
         }
 
-        vkCmdBindDescriptorSets(
-                commandBuffer,
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                geometry.getMaterial().pipelineLayout,
-                0,
-                tempData.pLong_1.put(0, geometry.getDescriptorSet(imageIndex)),
-                null
-        );
+        if (bindlessTexturesEnabled) {
+            vkCmdBindDescriptorSets(
+                    commandBuffer,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    material.pipelineLayout,
+                    0,
+                    tempData.pLongs2_1.put(0, descriptorSet).put(1, bindlessTexturePool.bindlessTexturesDescriptorSet),
+                    null
+            );
+        } else {
+            vkCmdBindDescriptorSets(
+                    commandBuffer,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    material.pipelineLayout,
+                    0,
+                    tempData.pLong_1.put(0, descriptorSet),
+                    null
+            );
+        }
 
         vkCmdDrawIndexed(commandBuffer, mesh.getIndicesLength(), 1, 0, 0, 0);
     }

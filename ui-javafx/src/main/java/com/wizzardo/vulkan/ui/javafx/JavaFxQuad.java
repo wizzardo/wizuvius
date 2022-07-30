@@ -153,7 +153,7 @@ public class JavaFxQuad extends Geometry {
             VulkanDescriptorSets.DescriptorSetsBuilder descriptorSetsBuilder = new VulkanDescriptorSets.DescriptorSetsBuilder(layoutBuilder.bindings)
                     .withUniformBuffers(modelViewProjectionUniformBuffers.uniformBuffers);
 
-            currentImage.descriptorSets.addAll(descriptorSetsBuilder.build(application.getDevice(), application.getSwapChainImages(), material.descriptorSetLayout, application.getDescriptorPool()));
+            currentImage.descriptorSets.addAll(descriptorSetsBuilder.build(application.getDevice(), application.getSwapChainImages().size(), material.descriptorSetLayout, application.getDescriptorPool()));
         }
     }
 

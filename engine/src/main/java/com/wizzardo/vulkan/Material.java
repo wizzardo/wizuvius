@@ -221,14 +221,21 @@ public class Material {
             buffer.flip();
             return buffer;
         });
+
+        long[] descriptorSetLayouts;
+        if (application.bindlessTexturePool != null)
+            descriptorSetLayouts = new long[]{descriptorSetLayout, application.bindlessTexturePool.bindlessTexturesDescriptorSetLayout};
+        else
+            descriptorSetLayouts = new long[]{descriptorSetLayout};
+
         CreateGraphicsPipelineResult pipeline = VulkanApplication.createGraphicsPipeline(
                 application.getDevice(),
                 vertShaderSPIRV,
                 fragShaderSPIRV,
                 viewport,
-                descriptorSetLayout,
                 vertexLayout,
-                constants
+                constants,
+                descriptorSetLayouts
         );
         return pipeline;
     }

@@ -6,15 +6,17 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static java.util.stream.Collectors.toSet;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+import static org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceFeatures2;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import java.nio.IntBuffer;
+import java.util.*;
 
 public class VulkanDevices {
-    static VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices) {
+    static VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices, boolean withBindlessTextures) {
         try (MemoryStack stack = stackPush()) {
             int[] uniqueQueueFamilies = indices.unique();
             VkDeviceQueueCreateInfo.Buffer queueCreateInfos = VkDeviceQueueCreateInfo.calloc(uniqueQueueFamilies.length, stack);
@@ -34,7 +36,13 @@ public class VulkanDevices {
             createInfo.sType(VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
             createInfo.pQueueCreateInfos(queueCreateInfos);
             createInfo.pEnabledFeatures(deviceFeatures);
-            createInfo.ppEnabledExtensionNames(Utils.asPointerBuffer(VulkanApplication.DEVICE_EXTENSIONS));
+            Set<String> extensionNames = new HashSet<>();
+            extensionNames.addAll(VulkanApplication.DEVICE_EXTENSIONS);
+            if (withBindlessTextures)
+                extensionNames.add("VK_EXT_descriptor_indexing");
+
+            createInfo.ppEnabledExtensionNames(Utils.asPointerBuffer(extensionNames));
+
 
             if (VulkanApplication.ENABLE_VALIDATION_LAYERS) {
                 createInfo.ppEnabledLayerNames(Utils.asPointerBuffer(VulkanApplication.VALIDATION_LAYERS));
@@ -49,7 +57,7 @@ public class VulkanDevices {
         }
     }
 
-    static VkPhysicalDevice pickPhysicalDevice(VkInstance instance, long surface) {
+    static VkPhysicalDevice pickPhysicalDevice(VkInstance instance, long surface, boolean withBindlessTextures) {
         try (MemoryStack stack = stackPush()) {
             IntBuffer deviceCount = stack.ints(0);
             vkEnumeratePhysicalDevices(instance, deviceCount, null);
@@ -63,7 +71,7 @@ public class VulkanDevices {
 
             for (int i = 0; i < ppPhysicalDevices.capacity(); i++) {
                 VkPhysicalDevice device = new VkPhysicalDevice(ppPhysicalDevices.get(i), instance);
-                if (isDeviceSuitable(device, surface)) {
+                if (isDeviceSuitable(device, surface, withBindlessTextures)) {
                     return device;
                 }
             }
@@ -72,12 +80,14 @@ public class VulkanDevices {
         }
     }
 
-    private static boolean isDeviceSuitable(VkPhysicalDevice device, long surface) {
+    private static boolean isDeviceSuitable(VkPhysicalDevice device, long surface, boolean withBindlessTextures) {
         QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(device, surface);
 
-        boolean extensionsSupported = checkDeviceExtensionSupport(device);
+        boolean extensionsSupported = checkDeviceExtensionSupport(device, VulkanApplication.DEVICE_EXTENSIONS);
         boolean swapChainAdequate = false;
         boolean anisotropySupported = false;
+        boolean bindlessTexturesFeatureSupported = false;
+        boolean bindlessTexturesExtensionSupported = checkDeviceExtensionSupport(device, Collections.singletonList("VK_EXT_descriptor_indexing"));
 
         if (extensionsSupported) {
             try (MemoryStack stack = stackPush()) {
@@ -86,8 +96,18 @@ public class VulkanDevices {
                 VkPhysicalDeviceFeatures supportedFeatures = VkPhysicalDeviceFeatures.malloc(stack);
                 vkGetPhysicalDeviceFeatures(device, supportedFeatures);
                 anisotropySupported = supportedFeatures.samplerAnisotropy();
+
+                if (withBindlessTextures && device.getCapabilities().vkGetPhysicalDeviceProperties2 != 0L) {
+                    VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = VkPhysicalDeviceDescriptorIndexingFeatures.calloc(stack);
+                    VkPhysicalDeviceFeatures2 deviceFeatures2 = VkPhysicalDeviceFeatures2.calloc(stack);
+                    deviceFeatures2.pNext(indexingFeatures);
+                    vkGetPhysicalDeviceFeatures2(device, deviceFeatures2);
+                    bindlessTexturesFeatureSupported = indexingFeatures.descriptorBindingPartiallyBound() && indexingFeatures.runtimeDescriptorArray();
+                }
             }
         }
+        if (withBindlessTextures && !(bindlessTexturesFeatureSupported || bindlessTexturesExtensionSupported))
+            return false;
 
         return indices.isComplete() && extensionsSupported && swapChainAdequate && anisotropySupported;
     }
@@ -115,17 +135,23 @@ public class VulkanDevices {
         return (properties.optimalTilingFeatures() & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) != 0 && (properties.optimalTilingFeatures() & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0;
     }
 
-    private static boolean checkDeviceExtensionSupport(VkPhysicalDevice device) {
+    private static boolean checkDeviceExtensionSupport(VkPhysicalDevice device, Collection<String> extensions) {
         try (MemoryStack stack = stackPush()) {
             IntBuffer extensionCount = stack.ints(0);
             vkEnumerateDeviceExtensionProperties(device, (String) null, extensionCount, null);
 
             VkExtensionProperties.Buffer availableExtensions = VkExtensionProperties.malloc(extensionCount.get(0), stack);
             vkEnumerateDeviceExtensionProperties(device, (String) null, extensionCount, availableExtensions);
+
+            System.out.println("availableExtensions: ");
+            availableExtensions.stream()
+                    .map(VkExtensionProperties::extensionNameString)
+                    .forEach(ext -> System.out.println("\t" + ext));
+
             return availableExtensions.stream()
                     .map(VkExtensionProperties::extensionNameString)
                     .collect(toSet())
-                    .containsAll(VulkanApplication.DEVICE_EXTENSIONS);
+                    .containsAll(extensions);
         }
     }
 }

@@ -153,9 +153,13 @@ public class DesktopVulkanApplication extends VulkanApplication {
                 if (ENABLE_VALIDATION_LAYERS) {
                     MemoryStack stack = stackGet();
 
-                    PointerBuffer extensions = stack.mallocPointer(glfwExtensions.capacity() + 1);
+                    PointerBuffer extensions;
+                    if (glfwExtensions != null) {
+                        extensions = stack.mallocPointer(glfwExtensions.capacity() + 1);
+                        extensions.put(glfwExtensions);
+                    } else
+                        extensions = stack.mallocPointer(1);
 
-                    extensions.put(glfwExtensions);
                     extensions.put(stack.UTF8(VK_EXT_DEBUG_UTILS_EXTENSION_NAME));
 
                     // Rewind the buffer before returning it to reset its position back to 0

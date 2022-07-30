@@ -16,6 +16,7 @@ public class TextureImage {
     protected long memoryUsage;
     protected String filename;
     protected Type type = Type.UNKNOWN;
+    protected int index = -1;
 
     public enum Type {
         NONE,
@@ -70,6 +71,10 @@ public class TextureImage {
         this.textureImage = image.textureImage;
         this.textureImageMemory = image.textureImageMemory;
         this.textureImageView = image.textureImageView;
+    }
+
+    public int getIndex(){
+        return index;
     }
 
     public void cleanup(VkDevice device) {
