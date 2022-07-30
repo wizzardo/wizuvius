@@ -87,7 +87,7 @@ public class Geometry extends Spatial {
             VulkanDescriptorSets.DescriptorSetsBuilder descriptorSetsBuilder = new VulkanDescriptorSets.DescriptorSetsBuilder(material.bindings)
                     .withUniformBuffers(modelViewProjectionUniformBuffers.uniformBuffers);
 
-            descriptorSets = descriptorSetsBuilder.build(application.getDevice(), application.getSwapChainImages(), material.descriptorSetLayout, application.getDescriptorPool());
+            descriptorSets = descriptorSetsBuilder.build(application.getDevice(), application.getSwapChainImages().size(), material.descriptorSetLayout, application.getDescriptorPool());
         }
         prepared = true;
     }
