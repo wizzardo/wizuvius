@@ -766,25 +766,7 @@ public abstract class VulkanApplication extends Thread {
         return System.nanoTime() / 1_000_000_000.0;
     }
 
-    protected long prevAllocation = 0;
-    protected com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-    protected boolean allocationTrackingEnabled = threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled();
-    protected long threadId = -1;
-
-    protected void printAllocation(String mark) {
-        if (threadId == -1)
-            threadId = Thread.currentThread().getId();
-
-        if (allocationTrackingEnabled) {
-            long allocatedBytes = threadMXBean.getThreadAllocatedBytes(threadId);
-            if (allocatedBytes - prevAllocation > 0) {
-                System.out.println(mark + " allocatedBytes: " + (allocatedBytes - prevAllocation));
-
-                allocatedBytes = threadMXBean.getThreadAllocatedBytes(threadId);
-                prevAllocation = allocatedBytes;
-            }
-        }
-    }
+    protected  abstract void printAllocation(String mark);
 
     protected void drawFrame(DrawFrameTempData tempData) {
         printAllocation("drawFrame start");

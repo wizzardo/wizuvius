@@ -38,18 +38,20 @@ public class DesktopVulkanApplication extends VulkanApplication {
     protected long threadId = -1;
     protected ResourcesListener resourcesListener;
     protected File devResourcesFolder = new File("src/main/resources");
+    protected int allocationGetCost;
 
     protected void printAllocation(String mark) {
-        if (threadId == -1)
+        if (threadId == -1) {
             threadId = Thread.currentThread().getId();
+            allocationGetCost = Math.abs((int) (threadMXBean.getThreadAllocatedBytes(threadId) - threadMXBean.getThreadAllocatedBytes(threadId)));
+        }
 
         if (allocationTrackingEnabled) {
             long allocatedBytes = threadMXBean.getThreadAllocatedBytes(threadId);
+            prevAllocation += allocationGetCost;
             if (allocatedBytes - prevAllocation > 0) {
                 System.out.println(mark + " allocatedBytes: " + (allocatedBytes - prevAllocation));
-
-                allocatedBytes = threadMXBean.getThreadAllocatedBytes(threadId);
-                prevAllocation = allocatedBytes;
+                prevAllocation = threadMXBean.getThreadAllocatedBytes(threadId);
             }
         }
     }
