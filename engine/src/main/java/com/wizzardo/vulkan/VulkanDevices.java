@@ -57,6 +57,46 @@ public class VulkanDevices {
         }
     }
 
+    static class DeviceInfo{
+        final VkPhysicalDevice physicalDevice;
+        final String name;
+        final Type type;
+
+        DeviceInfo(VkPhysicalDevice physicalDevice, String name, Type type) {
+            this.physicalDevice = physicalDevice;
+            this.name = name;
+            this.type = type;
+        }
+
+        enum Type {
+            DISCRETE_GPU(2),
+            INTEGRATED_GPU(1),
+            VIRTUAL_GPU(3),
+            CPU(4),
+            OTHER(0);
+
+            final int vkType;
+
+            Type(int vkType) {
+                this.vkType = vkType;
+            }
+
+           static Type byVkType(int type) {
+                if (type == 0)
+                    return OTHER;
+                if (type == 1)
+                    return INTEGRATED_GPU;
+                if (type == 2)
+                    return DISCRETE_GPU;
+                if (type == 3)
+                    return VIRTUAL_GPU;
+                if (type == 4)
+                    return CPU;
+                throw new IllegalArgumentException("Unknown type: " + type);
+            }
+        }
+    }
+
     static VkPhysicalDevice pickPhysicalDevice(VkInstance instance, long surface, boolean withBindlessTextures) {
         try (MemoryStack stack = stackPush()) {
             IntBuffer deviceCount = stack.ints(0);
@@ -69,14 +109,23 @@ public class VulkanDevices {
             PointerBuffer ppPhysicalDevices = stack.mallocPointer(deviceCount.get(0));
             vkEnumeratePhysicalDevices(instance, deviceCount, ppPhysicalDevices);
 
+            List<DeviceInfo> devices = new ArrayList<>();
+
             for (int i = 0; i < ppPhysicalDevices.capacity(); i++) {
                 VkPhysicalDevice device = new VkPhysicalDevice(ppPhysicalDevices.get(i), instance);
+                VkPhysicalDeviceProperties deviceProperties = VkPhysicalDeviceProperties.calloc(stack);
+                vkGetPhysicalDeviceProperties(device, deviceProperties);
+
                 if (isDeviceSuitable(device, surface, withBindlessTextures)) {
-                    return device;
+                    devices.add(new DeviceInfo(device, deviceProperties.deviceNameString(), DeviceInfo.Type.byVkType(deviceProperties.deviceType())));
                 }
             }
 
-            throw new RuntimeException("Failed to find a suitable GPU");
+            if (devices.isEmpty())
+                throw new RuntimeException("Failed to find a suitable GPU");
+
+            devices.sort(Comparator.comparingInt(it -> it.type.ordinal()));
+            return devices.get(0).physicalDevice;
         }
     }
 
