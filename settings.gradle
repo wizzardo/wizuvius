@@ -1,7 +1,10 @@
-include ':app',
-        ':engine',
+//include ':app'
+include ':engine',
         ':engine-desktop',
         ':ui-javafx',
+        ':ui-javafx:linux',
+        ':ui-javafx:windows',
+        ':ui-javafx:macos',
         ':scene-editor-be',
         ':sample',
         ':samples'

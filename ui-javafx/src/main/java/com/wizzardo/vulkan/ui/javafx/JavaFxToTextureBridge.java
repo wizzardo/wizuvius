@@ -455,9 +455,10 @@ public class JavaFxToTextureBridge {
         boolean ctrl = keyState.isCtrlPressed();
         boolean alt = keyState.isAltPressed();
         boolean meta = keyState.isMetaPressed();
+        Helper.mouseEvent(getEmbeddedScene(), x, y, screenX, screenY, type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, shift, ctrl, alt, meta);
 
-        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, x, y,
-                screenX, screenY, shift, ctrl, alt, meta, false);
+//        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, x, y,
+//                screenX, screenY, shift, ctrl, alt, meta, false);
     }
 
     public void onMouseButtonEvent(int x, int y, int screenX, int screenY, int type, int button) {
@@ -473,8 +474,9 @@ public class JavaFxToTextureBridge {
         boolean meta = keyState.isMetaPressed();
         boolean popupTrigger = button == AbstractEvents.MOUSEEVENT_SECONDARY_BUTTON;
 
-        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, x, y,
-                screenX, screenY, shift, ctrl, alt, meta, popupTrigger);
+        Helper.mouseEvent(getEmbeddedScene(), x, y, screenX, screenY, type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, shift, ctrl, alt, meta);
+//        getEmbeddedScene().mouseEvent(type, button, primaryBtnDown, middleBtnDown, secondaryBtnDown, x, y,
+//                screenX, screenY, shift, ctrl, alt, meta, popupTrigger);
     }
 
     public void onMouseScrollEvent(int x, int y, int screenX, int screenY, double scrollX, double scrollY, int type) {

@@ -6,25 +6,14 @@ targetCompatibility = 11
 dependencies {
     api(project(":engine"))
 
-    def os = ""
-    if (org.gradle.internal.os.OperatingSystem.current().isLinux()) {
-        os = "linux"
-        api(project(":ui-javafx:linux"))
-    } else if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
-        os = "mac"
-        api(project(":ui-javafx:macos"))
-    } else if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
-        os = "win"
-        api(project(":ui-javafx:windows"))
-    }
-
     def arch = ""
     if (System.getProperty("os.arch") == "aarch64") {
         arch = "-aarch64"
     }
 
 //    def javaFx = "18-ea+9:linux"
-    def javaFx = "18.0.2:${os}${arch}"
+//    def javaFx = "18-ea+10:linux"
+    def javaFx = "18.0.2:mac"
 //    def javaFx = "16:linux"
 //    def javaFx = "17-ea+2:linux"
 //    def javaFx = "11.0.2:linux"
