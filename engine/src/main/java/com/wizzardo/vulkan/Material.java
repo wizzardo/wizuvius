@@ -125,8 +125,10 @@ public class Material {
 
     public void cleanup(VkDevice device) {
         try {
-            vkDestroySampler(device, textureSampler, null);
-            vkDestroyDescriptorSetLayout(device, descriptorSetLayout, null);
+            if (textureSampler != 0L)
+                vkDestroySampler(device, textureSampler, null);
+            if (descriptorSetLayout != 0L)
+                vkDestroyDescriptorSetLayout(device, descriptorSetLayout, null);
             for (int i = 0; i < textures.size(); i++) {
                 TextureImage texture = textures.get(i);
                 texture.cleanup(device);

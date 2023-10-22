@@ -36,17 +36,16 @@ public class UniformBuffer {
         return buffer;
     }
 
-    public void unmap(VkDevice device) {
+    public void cleanup(VkDevice device) {
         if (buffer == null)
             return;
 
-        vkUnmapMemory(device, memoryAddress);
-        buffer = null;
-    }
-
-    public void cleanup(VkDevice device) {
-        unmap(device);
-        vkDestroyBuffer(device, address, null);
-        vkFreeMemory(device, memoryAddress, null);
+        try {
+            vkUnmapMemory(device, memoryAddress);
+            vkDestroyBuffer(device, address, null);
+            vkFreeMemory(device, memoryAddress, null);
+        } finally {
+            buffer = null;
+        }
     }
 }
