@@ -153,6 +153,7 @@ class SwapChainTools {
             createInfo.imageExtent(extent);
             createInfo.imageArrayLayers(1);
             createInfo.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+            createInfo.preTransform(VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR);
 
 //            Log.v(TAG, "createInfo.ALIGNOF: " + VkSwapchainCreateInfoKHRAndroid.ALIGNOF);
 //            Log.v(TAG, "createInfo.stype: " + ((int) (createInfo.sType())) + " " + VkSwapchainCreateInfoKHRAndroid.STYPE);
