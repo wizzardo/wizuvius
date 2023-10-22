@@ -335,6 +335,7 @@ public abstract class VulkanApplication extends Thread {
                 timestampPeriod = properties.limits().timestampPeriod();
 
                 VkQueryPoolCreateInfo poolCreateInfo = VkQueryPoolCreateInfo.calloc(stack);
+                poolCreateInfo.sType$Default();
                 poolCreateInfo.queryCount(100);
                 poolCreateInfo.queryType(VK_QUERY_TYPE_TIMESTAMP);
 
