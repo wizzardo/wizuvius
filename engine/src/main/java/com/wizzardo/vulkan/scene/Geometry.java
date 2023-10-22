@@ -44,6 +44,8 @@ public class Geometry extends Spatial {
     public void cleanup(VkDevice device) {
         if (mesh != null)
             mesh.cleanup(device);
+        if (material != null)
+            material.cleanup(device);
     }
 
     public void cleanupSwapChainObjects(VkDevice device) {

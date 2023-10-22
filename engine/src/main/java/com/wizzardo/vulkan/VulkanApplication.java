@@ -545,6 +545,7 @@ public abstract class VulkanApplication extends Thread {
 
         syncObjects.cleanup(device);
 
+        vkDestroyQueryPool(device, timestampQueryPool, null);
         vkDestroyCommandPool(device, commandPool, null);
         vkDestroyDevice(device, null);
 
