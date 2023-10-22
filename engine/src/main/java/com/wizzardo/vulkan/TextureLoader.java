@@ -483,17 +483,6 @@ public class TextureLoader {
             long textureImage = pTextureImage.get(0);
             long textureImageMemory = pTextureImageMemory.get(0);
 
-            VulkanImages.transitionImageLayout(
-                    device,
-                    transferQueue,
-                    commandPool,
-                    textureImage,
-                    format,
-                    VK_IMAGE_LAYOUT_UNDEFINED,
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    mipLevels
-            );
-
             VkCommandBuffer commandBuffer = VulkanCommands.beginSingleTimeCommands(device, commandPool);
 
             VkImageMemoryBarrier.Buffer barrier = VkImageMemoryBarrier.calloc(1, stack);
@@ -503,10 +492,10 @@ public class TextureLoader {
             barrier.subresourceRange().baseMipLevel(0);
             barrier.subresourceRange().layerCount(1);
             barrier.subresourceRange().levelCount(mipLevels);
-            barrier.srcAccessMask(VK_ACCESS_HOST_WRITE_BIT);
-            barrier.dstAccessMask(VK_ACCESS_SHADER_READ_BIT);
-            barrier.oldLayout(VK_IMAGE_LAYOUT_PREINITIALIZED);
-            barrier.newLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            barrier.srcAccessMask(0);
+            barrier.dstAccessMask(VK_ACCESS_TRANSFER_WRITE_BIT);
+            barrier.oldLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+            barrier.newLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             vkCmdPipelineBarrier(
                     commandBuffer,
