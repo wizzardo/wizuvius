@@ -151,24 +151,24 @@ public class DesktopVulkanApplication extends VulkanApplication {
         return new VulkanInstances() {
             @Override
             public PointerBuffer getRequiredExtensions() {
+                Set<String> requiredExtensions = new HashSet<>();
+                requiredExtensions.add(KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+                requiredExtensions.add(KHRGetPhysicalDeviceProperties2.VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+
+                if (ENABLE_VALIDATION_LAYERS)
+                    requiredExtensions.add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
                 PointerBuffer glfwExtensions = glfwGetRequiredInstanceExtensions();
-                if (ENABLE_VALIDATION_LAYERS) {
-                    MemoryStack stack = stackGet();
+                if (glfwExtensions == null)
+                    throw new IllegalStateException("Failed to get glfw extensions");
 
-                    PointerBuffer extensions;
-                    if (glfwExtensions != null) {
-                        extensions = stack.mallocPointer(glfwExtensions.capacity() + 1);
-                        extensions.put(glfwExtensions);
-                    } else
-                        extensions = stack.mallocPointer(1);
-
-                    extensions.put(stack.UTF8(VK_EXT_DEBUG_UTILS_EXTENSION_NAME));
-
-                    // Rewind the buffer before returning it to reset its position back to 0
-                    return extensions.rewind();
+                MemoryStack stack = stackGet();
+                PointerBuffer extensions = stack.mallocPointer(glfwExtensions.capacity() + requiredExtensions.size());
+                extensions.put(glfwExtensions);
+                for (String extension : requiredExtensions) {
+                    extensions.put(stack.UTF8(extension));
                 }
-
-                return glfwExtensions;
+                return extensions.rewind();
             }
         };
     }

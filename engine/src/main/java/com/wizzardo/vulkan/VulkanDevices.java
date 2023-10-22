@@ -31,15 +31,18 @@ public class VulkanDevices {
             VkPhysicalDeviceFeatures deviceFeatures = VkPhysicalDeviceFeatures.calloc(stack);
             deviceFeatures.samplerAnisotropy(true);
 
+            Set<String> availableExtensions = getAvailableExtensions(physicalDevice);
+
             VkDeviceCreateInfo createInfo = VkDeviceCreateInfo.calloc(stack);
 
             createInfo.sType(VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
             createInfo.pQueueCreateInfos(queueCreateInfos);
             createInfo.pEnabledFeatures(deviceFeatures);
-            Set<String> extensionNames = new HashSet<>();
-            extensionNames.addAll(VulkanApplication.DEVICE_EXTENSIONS);
+            Set<String> extensionNames = new HashSet<>(VulkanApplication.DEVICE_EXTENSIONS);
             if (withBindlessTextures)
                 extensionNames.add("VK_EXT_descriptor_indexing");
+            if (availableExtensions.contains("VK_KHR_portability_subset"))
+                extensionNames.add("VK_KHR_portability_subset");
 
             createInfo.ppEnabledExtensionNames(Utils.asPointerBuffer(extensionNames));
 
@@ -132,11 +135,17 @@ public class VulkanDevices {
     private static boolean isDeviceSuitable(VkPhysicalDevice device, long surface, boolean withBindlessTextures) {
         QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(device, surface);
 
-        boolean extensionsSupported = checkDeviceExtensionSupport(device, VulkanApplication.DEVICE_EXTENSIONS);
+        Set<String> availableExtensions = getAvailableExtensions(device);
+//            System.out.println("availableExtensions: ");
+//            availableExtensions.stream()
+//                    .map(VkExtensionProperties::extensionNameString)
+//                    .forEach(ext -> System.out.println("\t" + ext));
+
+        boolean extensionsSupported = availableExtensions.containsAll(VulkanApplication.DEVICE_EXTENSIONS);
         boolean swapChainAdequate = false;
         boolean anisotropySupported = false;
         boolean bindlessTexturesFeatureSupported = false;
-        boolean bindlessTexturesExtensionSupported = checkDeviceExtensionSupport(device, Collections.singletonList("VK_EXT_descriptor_indexing"));
+        boolean bindlessTexturesExtensionSupported = availableExtensions.contains("VK_EXT_descriptor_indexing");
 
         if (extensionsSupported) {
             try (MemoryStack stack = stackPush()) {
@@ -184,7 +193,7 @@ public class VulkanDevices {
         return (properties.optimalTilingFeatures() & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) != 0 && (properties.optimalTilingFeatures() & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0;
     }
 
-    private static boolean checkDeviceExtensionSupport(VkPhysicalDevice device, Collection<String> extensions) {
+    private static Set<String> getAvailableExtensions(VkPhysicalDevice device) {
         try (MemoryStack stack = stackPush()) {
             IntBuffer extensionCount = stack.ints(0);
             vkEnumerateDeviceExtensionProperties(device, (String) null, extensionCount, null);
@@ -192,15 +201,9 @@ public class VulkanDevices {
             VkExtensionProperties.Buffer availableExtensions = VkExtensionProperties.malloc(extensionCount.get(0), stack);
             vkEnumerateDeviceExtensionProperties(device, (String) null, extensionCount, availableExtensions);
 
-            System.out.println("availableExtensions: ");
-            availableExtensions.stream()
-                    .map(VkExtensionProperties::extensionNameString)
-                    .forEach(ext -> System.out.println("\t" + ext));
-
             return availableExtensions.stream()
                     .map(VkExtensionProperties::extensionNameString)
-                    .collect(toSet())
-                    .containsAll(extensions);
+                    .collect(toSet());
         }
     }
 }
