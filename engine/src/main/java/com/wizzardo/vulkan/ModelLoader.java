@@ -78,6 +78,7 @@ public class ModelLoader {
 
         try {
             Map<String, ByteBuffer> loaded = new HashMap<>();
+            Map<Long, AIFile> openFiles = new HashMap<>();
             fileIO.OpenProc((pFileIO, fileName, openMode) -> {
                         ByteBuffer data;
                         String fileNameUtf8 = memUTF8(fileName);
@@ -94,7 +95,9 @@ public class ModelLoader {
                             throw new RuntimeException("Could not open file: " + fileNameUtf8);
                         }
 
-                        return AIFile.create()
+                        AIFile file = AIFile.create();
+                        openFiles.put(file.address(), file);
+                        return file
                                 .ReadProc((pFile, pBuffer, size, count) -> {
                                     long max = Math.min(data.remaining(), size * count);
                                     if (max != size * count && max % size != 0) {
@@ -123,13 +126,16 @@ public class ModelLoader {
                                 .address();
                     })
                     .CloseProc((pFileIO, pFile) -> {
-                        AIFile aiFile = AIFile.create(pFile);
+                        AIFile aiFile = openFiles.get(pFile);
+                        if (aiFile == null)
+                            return;
 
                         aiFile.ReadProc().free();
                         aiFile.SeekProc().free();
                         aiFile.FileSizeProc().free();
                         aiFile.TellProc().free();
-                        aiFile.free();
+
+                        openFiles.remove(pFile);
                     });
 
             try (AIScene scene = aiImportFileEx(path, flags, fileIO)) {
@@ -153,7 +159,6 @@ public class ModelLoader {
         } finally {
             fileIO.OpenProc().free();
             fileIO.CloseProc().free();
-            fileIO.free();
         }
     }
 
