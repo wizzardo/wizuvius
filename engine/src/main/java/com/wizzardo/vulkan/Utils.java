@@ -56,6 +56,16 @@ public class Utils {
                     buffer.putFloat(vertex.tangent.x());
                     buffer.putFloat(vertex.tangent.y());
                     buffer.putFloat(vertex.tangent.z());
+                } else if (location == Material.VertexLayout.BindingDescription.BONE_INDEX) {
+                    buffer.putInt(vertex.boneIndexes.x());
+                    buffer.putInt(vertex.boneIndexes.y());
+                    buffer.putInt(vertex.boneIndexes.z());
+                    buffer.putInt(vertex.boneIndexes.w());
+                } else if (location == Material.VertexLayout.BindingDescription.BONE_WEIGHT) {
+                    buffer.putFloat(vertex.boneWeights.x());
+                    buffer.putFloat(vertex.boneWeights.y());
+                    buffer.putFloat(vertex.boneWeights.z());
+                    buffer.putFloat(vertex.boneWeights.w());
                 }
             }
         }

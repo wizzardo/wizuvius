@@ -270,6 +270,8 @@ public class Material {
             TANGENT(3),
             COLOR(3),
             TEXTURE_COORDINATES(2),
+            BONE_INDEX(4),
+            BONE_WEIGHT(4),
             ;
 
             public final int size;

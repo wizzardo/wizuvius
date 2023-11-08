@@ -4,12 +4,12 @@ import org.joml.Vector3f;
 import org.lwjgl.vulkan.VkDevice;
 
 public class Mesh {
+    protected Armature armature;
     private Vertex[] vertices;
     private int[] indices;
 
     private BufferHolder vertexBuffer;
     private BufferHolder indexBuffer;
-    private int indicesLength;
     protected BoundingBox boundingBox;
 
     public Mesh(Vertex[] vertices, int[] indices) {
@@ -50,11 +50,11 @@ public class Mesh {
     }
 
     public int getIndicesLength() {
-        return indicesLength;
+        return indices.length;
     }
 
-    public void setIndicesLength(int indicesLength) {
-        this.indicesLength = indicesLength;
+    public Armature getArmature() {
+        return armature;
     }
 
     public void cleanup(VkDevice device) {
@@ -66,7 +66,6 @@ public class Mesh {
         } finally {
             indexBuffer = null;
             vertexBuffer = null;
-            indicesLength = 0;
         }
     }
 
@@ -74,7 +73,6 @@ public class Mesh {
         if (vertexBuffer == null || indexBuffer == null) {
             vertexBuffer = Utils.createVertexBuffer(app.physicalDevice, app.device, app.transferQueue, app.commandPool, getVertices(), vertexLayout);
             indexBuffer = Utils.createIndexBuffer(app.physicalDevice, app.device, app.transferQueue, app.commandPool, getIndices());
-            setIndicesLength(getIndices().length);
         }
     }
 
