@@ -877,21 +877,22 @@ public abstract class VulkanApplication extends Thread {
     }
 
     private void processAlterations(double tpf) {
-        int shiftLeftTo = -1;
-        for (int i = 0; i < alterations.size(); i++) {
+        int shiftLeft = 0;
+        int size;
+        for (int i = 0; i < (size = alterations.size()); i++) {
             Alteration alteration = alterations.get(i);
             if (!alteration.onUpdate(tpf)) {
-                if (shiftLeftTo == -1)
-                    shiftLeftTo = i;
+                shiftLeft++;
             } else {
-                if (shiftLeftTo != -1) {
-                    alterations.set(shiftLeftTo, alteration);
-                    shiftLeftTo++;
+                if (shiftLeft != 0) {
+                    alterations.set(i - shiftLeft, alteration);
                 }
             }
         }
-        while (shiftLeftTo > 0 && shiftLeftTo < alterations.size()) {
-            alterations.remove(alterations.size() - 1);
+        while (shiftLeft > 0) {
+            alterations.remove(size - 1);
+            shiftLeft--;
+            size--;
         }
     }
 
