@@ -1,18 +1,21 @@
 package com.wizzardo.vulkan.input;
 
+import com.wizzardo.tools.cache.Cache;
 import com.wizzardo.vulkan.DesktopVulkanApplication;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
 import static org.lwjgl.system.MemoryStack.stackPush;
 
 public class GlfwInputsManager implements InputsManager {
-    protected final DesktopVulkanApplication application;
+    protected DesktopVulkanApplication application;
     protected List<MouseMoveListener> mouseMoveListeners = new CopyOnWriteArrayList<>();
     protected List<MouseButtonListener> mouseButtonListeners = new CopyOnWriteArrayList<>();
     protected List<ScrollListener> scrollListeners = new CopyOnWriteArrayList<>();
@@ -23,6 +26,32 @@ public class GlfwInputsManager implements InputsManager {
     protected double mousePositionY;
     protected float windowScaleX = 1;
     protected float windowScaleY = 1;
+    protected Cache<Cursor, Long> cursors = new Cache<>(-1, cursor -> {
+        if (application.isInMainThread()) {
+            return glfwCreateStandardCursor(cursor.shape);
+        } else {
+            CompletableFuture<Long> future = new CompletableFuture<>();
+            application.addTask(() -> future.complete(glfwCreateStandardCursor(cursor.shape)));
+            return future.get();
+        }
+    });
+
+    public enum Cursor {
+        ARROW(GLFW_ARROW_CURSOR),
+        IBEAM(GLFW_IBEAM_CURSOR),
+        CROSSHAIR(GLFW_CROSSHAIR_CURSOR),
+        POINTING_HAND(GLFW_POINTING_HAND_CURSOR),
+        RESIZE_EW(GLFW_RESIZE_EW_CURSOR),
+        RESIZE_NS(GLFW_RESIZE_NS_CURSOR),
+        RESIZE_ALL(GLFW_RESIZE_ALL_CURSOR),
+        ;
+
+        final int shape;
+
+        Cursor(int shape) {
+            this.shape = shape;
+        }
+    }
 
     public GlfwInputsManager(DesktopVulkanApplication application) {
         this.application = application;
@@ -136,6 +165,21 @@ public class GlfwInputsManager implements InputsManager {
                 application.logE(() -> "GLFW.ERROR: " + error + " " + description, new RuntimeException("GLFW.ERROR: " + error + " " + description));
             });
         });
+    }
+
+    public void setCursor(Cursor cursor) {
+        if (application.isInMainThread()) {
+            Long c = cursors.get(cursor);
+            if (c == null || c == 0L)
+                return;
+            glfwSetCursor(application.getWindow(), c);
+        } else
+            application.addTask(() -> {
+                Long c = cursors.get(cursor);
+                if (c == null || c == 0L)
+                    return;
+                glfwSetCursor(application.getWindow(), c);
+            });
     }
 
     @Override

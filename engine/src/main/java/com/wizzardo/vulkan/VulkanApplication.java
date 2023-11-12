@@ -1060,6 +1060,10 @@ public abstract class VulkanApplication extends Thread {
         return false;
     }
 
+    public boolean isInMainThread() {
+        return Thread.currentThread() == this;
+    }
+
     public void saveScreenshot(String name) {
         try (MemoryStack stack = stackPush()) {
             boolean supportsBlit = true;
