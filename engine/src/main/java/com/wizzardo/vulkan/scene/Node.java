@@ -7,19 +7,46 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public class Node extends Spatial {
-    protected List<Spatial> children = new ArrayList<>();
+public class Node {
+    protected List<Node> children = new ArrayList<>();
+    protected String name;
+    protected Node parent;
 
-    public List<Spatial> getChildren() {
+    public Node(String name) {
+        this.name = name;
+    }
+
+    public Node() {
+    }
+
+    public List<Node> getChildren() {
         return children;
     }
 
-    public void attachChild(Spatial spatial) {
+    public void attachChild(Node spatial) {
         children.add(spatial);
         spatial.setParent(this);
     }
 
-    public boolean detachChild(Spatial spatial) {
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+
+    protected void setParent(Node parent) {
+        this.parent = parent;
+    }
+
+    public Node getParent() {
+        return parent;
+    }
+
+    public boolean detachChild(Node spatial) {
         boolean removed = children.remove(spatial);
         if (removed) {
             spatial.setParent(null);
@@ -29,20 +56,19 @@ public class Node extends Spatial {
 
     public Stream<Geometry> geometries() {
         return StreamSupport.stream(new Spliterator<Geometry>() {
-            Cursor<Spatial> cursor = new Cursor<>(null, children);
+            Cursor<Node> cursor = new Cursor<>(null, children);
 
             @Override
             public boolean tryAdvance(Consumer<? super Geometry> action) {
                 do {
                     while (cursor.position < cursor.list.size()) {
-                        Spatial spatial = cursor.list.get(cursor.position++);
-                        if (spatial instanceof Geometry) {
-                            action.accept((Geometry) spatial);
+                        Node node = cursor.list.get(cursor.position++);
+                        if (!node.children.isEmpty())
+                            cursor = new Cursor<>(cursor, node.children);
+
+                        if (node instanceof Geometry) {
+                            action.accept((Geometry) node);
                             return true;
-                        } else if (spatial instanceof Node) {
-                            cursor = new Cursor<>(cursor, ((Node) spatial).children);
-                        } else {
-                            throw new IllegalStateException("Unknown type of Spatial: " + spatial.getClass());
                         }
                     }
                     cursor = cursor.parent;
