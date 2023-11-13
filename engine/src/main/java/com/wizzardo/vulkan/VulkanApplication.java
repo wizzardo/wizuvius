@@ -996,13 +996,13 @@ public abstract class VulkanApplication extends Thread {
     }
 
     protected void recordGeometryDraw(Node node, VkCommandBuffer commandBuffer, CommandBufferTempData tempData, int imageIndex) {
-        List<Spatial> children = node.getChildren();
+        List<Node> children = node.getChildren();
         for (int i = 0; i < children.size(); i++) {
-            Spatial spatial = children.get(i);
-            if (spatial instanceof Geometry) {
-                recordGeometryDraw((Geometry) spatial, commandBuffer, tempData, imageIndex);
-            } else if (spatial instanceof Node) {
-                recordGeometryDraw((Node) spatial, commandBuffer, tempData, imageIndex);
+            Node n = children.get(i);
+            if (n instanceof Geometry) {
+                recordGeometryDraw((Geometry) n, commandBuffer, tempData, imageIndex);
+            } else {
+                recordGeometryDraw(n, commandBuffer, tempData, imageIndex);
             }
         }
     }
