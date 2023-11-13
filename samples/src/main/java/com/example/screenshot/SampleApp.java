@@ -48,7 +48,9 @@ public class SampleApp extends AbstractSampleApp {
             getInputsManager().addKeyListener((key, pressed, repeat) -> {
                 if (key == GlfwKey.GLFW_KEY_SPACE && pressed) {
                     saveScreenshot("screenshot-" + System.currentTimeMillis());
+                    return false;
                 }
+                return true;
             });
         }
     }
