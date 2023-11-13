@@ -157,10 +157,10 @@ public class JavaFxQuad extends Geometry {
         }
     }
 
-//    @Override
-//    public List<Long> getDescriptorSets() {
-//        return currentImage.descriptorSets;
-//    }
+    @Override
+    public long getDescriptorSet(Material material, int imageIndex) {
+        return currentImage.descriptorSets.get(imageIndex);
+    }
 
     @Override
     public boolean isPrepared() {

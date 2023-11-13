@@ -18,7 +18,7 @@ import javafx.scene.Scene;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
-import org.lwjgl.vulkan.VkDevice;
+import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -54,6 +54,8 @@ public class JavaFxToTextureBridge {
     protected VulkanApplication application;
     protected static volatile int imageFormat;
     protected int textureCounter = 0;
+    protected static VkQueue transferQueue;
+    protected static long commandPool;
 
     public static void init() {
         CountDownLatch javaFxInit = new CountDownLatch(1);
@@ -62,6 +64,7 @@ public class JavaFxToTextureBridge {
     }
 
     public static void startup(CountDownLatch javaFxInit) {
+        PlatformImpl.setTaskbarApplication(false);
         PlatformImpl.startup(() -> {
             pixelsNativeFormat = Pixels.getNativeFormat();
             switch (pixelsNativeFormat) {
@@ -78,7 +81,8 @@ public class JavaFxToTextureBridge {
         });
     }
 
-    public static void cleanup() {
+    public static void cleanup(VulkanApplication application) {
+        vkDestroyCommandPool(application.getDevice(), commandPool, null);
         Platform.exit();
     }
 
@@ -87,8 +91,8 @@ public class JavaFxToTextureBridge {
         TextureImage textureImage = TextureLoader.createTextureImage(
                 application.getPhysicalDevice(),
                 application.getDevice(),
-                application.getTransferQueue(),
-                application.getCommandPool(),
+                transferQueue,
+                commandPool,
                 textureWidth,
                 textureHeight,
                 imageFormat,
@@ -153,6 +157,7 @@ public class JavaFxToTextureBridge {
 
     protected JavaFxToTextureBridge(VulkanApplication application) {
         this.application = application;
+        initQueue(application);
     }
 
     public JavaFxToTextureBridge(VulkanApplication application, int width, int height) {
@@ -174,8 +179,8 @@ public class JavaFxToTextureBridge {
                         VertexLayout.BindingDescription.TEXTURE_COORDINATES
                 );
 
-                setVertexShader("shaders/javafx.vert.spv");
-                setFragmentShader("shaders/javafx.frag.spv");
+                setVertexShader("shaders/javafx.vert");
+                setFragmentShader("shaders/javafx.frag");
 //        material.setTextureImage(textureImage);
                 addTextureImage(textureHolder.textureImage);
                 setTextureSampler(application.createTextureSampler(1));
@@ -187,6 +192,19 @@ public class JavaFxToTextureBridge {
         this.tempData = ByteBuffer.allocateDirect(imageSize).order(ByteOrder.nativeOrder());
         this.tempDataIntView = tempData.asIntBuffer();
         this.stagingBuffer = createStagingBuffer(application, imageSize);
+    }
+
+    private static void initQueue(VulkanApplication application) {
+        if (transferQueue != null)
+            return;
+
+        List<VulkanQueues.QueueFamilyProperties> list = VulkanQueues.getQueueFamilies(application.getPhysicalDevice());
+        Optional<VulkanQueues.QueueFamilyProperties> index = list.stream().filter(it -> (it.flags & VK_QUEUE_TRANSFER_BIT) != 0).skip(1).findFirst();
+        if (index.isEmpty())
+            throw new IllegalStateException();
+
+        transferQueue = VulkanQueues.createQueue(application.getDevice(), index.get().index);
+        commandPool = VulkanCommands.createCommandPool(application.getDevice(), index.get().index);
     }
 
     public TextureHolder getCurrentImage() {
@@ -386,7 +404,7 @@ public class JavaFxToTextureBridge {
             vkMapMemory(application.getDevice(), pStagingBufferMemory.get(0), 0, size, 0, data);
 //            memcpy(data.getByteBuffer(0, (int) imageSize), pixels, imageSize);
 //            vkUnmapMemory(device, pStagingBufferMemory.get(0));
-            BufferHolder bufferHolder = new BufferHolder(pStagingBuffer.get(0), pStagingBufferMemory.get(0));
+            BufferHolder bufferHolder = new BufferHolder(pStagingBuffer.get(0), pStagingBufferMemory.get(0), size, 4);
             bufferHolder.setMappedBuffer(data.getByteBuffer(0, size));
             return bufferHolder;
         }
@@ -407,15 +425,87 @@ public class JavaFxToTextureBridge {
     }
 
     private void copyToTexture(TextureHolder dst) {
-        TextureLoader.copyBufferToImage(
+        copyBufferToImage(
                 application.getDevice(),
-                application.getTransferQueue(),
-                application.getCommandPool(),
+                transferQueue,
+                commandPool,
                 stagingBuffer.buffer,
                 dst.textureImage.getTextureImage(),
                 textureWidth,
                 textureHeight
         );
+    }
+
+
+    public static void copyBufferToImage(VkDevice device, VkQueue queue, long commandPool, long buffer, long image, int width, int height) {
+        try (MemoryStack stack = stackPush()) {
+            VkCommandBuffer commandBuffer = VulkanCommands.beginSingleTimeCommands(device, commandPool);
+
+            {
+                VkImageMemoryBarrier.Buffer barrier = VkImageMemoryBarrier.calloc(1, stack);
+                barrier.sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+                barrier.oldLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                barrier.newLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                barrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+                barrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+                barrier.image(image);
+                barrier.subresourceRange().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+                barrier.subresourceRange().baseMipLevel(0);
+                barrier.subresourceRange().levelCount(1);
+                barrier.subresourceRange().baseArrayLayer(0);
+                barrier.subresourceRange().layerCount(1);
+
+                vkCmdPipelineBarrier(
+                        commandBuffer,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        0,
+                        null,
+                        null,
+                        barrier
+                );
+            }
+
+            VkBufferImageCopy.Buffer region = VkBufferImageCopy.calloc(1, stack);
+            region.bufferOffset(0);
+            region.bufferRowLength(0);   // Tightly packed
+            region.bufferImageHeight(0);  // Tightly packed
+            region.imageSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+            region.imageSubresource().mipLevel(0);
+            region.imageSubresource().baseArrayLayer(0);
+            region.imageSubresource().layerCount(1);
+            region.imageOffset().set(0, 0, 0);
+            region.imageExtent(VkExtent3D.calloc(stack).set(width, height, 1));
+
+            vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, region);
+
+            {
+                VkImageMemoryBarrier.Buffer barrier = VkImageMemoryBarrier.calloc(1, stack);
+                barrier.sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+                barrier.oldLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                barrier.newLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                barrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+                barrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+                barrier.image(image);
+                barrier.subresourceRange().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+                barrier.subresourceRange().baseMipLevel(0);
+                barrier.subresourceRange().levelCount(1);
+                barrier.subresourceRange().baseArrayLayer(0);
+                barrier.subresourceRange().layerCount(1);
+
+                vkCmdPipelineBarrier(
+                        commandBuffer,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,  // Adjust this stage as needed
+                        0,
+                        null,
+                        null,
+                        barrier
+                );
+            }
+
+            VulkanCommands.endSingleTimeCommands(device, queue, commandPool, commandBuffer);
+        }
     }
 
     public void onMouseMove(int x, int y, int screenX, int screenY) {
