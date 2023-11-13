@@ -16,9 +16,9 @@ import java.nio.IntBuffer;
 import java.util.*;
 
 public class VulkanDevices {
-    static VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices, boolean withBindlessTextures) {
+    static VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice, List<VulkanQueues.QueueFamilyProperties> queueFamilyProperties, boolean withBindlessTextures) {
         try (MemoryStack stack = stackPush()) {
-            int[] uniqueQueueFamilies = indices.unique();
+            int[] uniqueQueueFamilies = queueFamilyProperties.stream().mapToInt(it -> it.index).toArray();
             VkDeviceQueueCreateInfo.Buffer queueCreateInfos = VkDeviceQueueCreateInfo.calloc(uniqueQueueFamilies.length, stack);
 
             for (int i = 0; i < uniqueQueueFamilies.length; i++) {
@@ -133,7 +133,7 @@ public class VulkanDevices {
     }
 
     private static boolean isDeviceSuitable(VkPhysicalDevice device, long surface, boolean withBindlessTextures) {
-        QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(device, surface);
+        QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(device);
 
         Set<String> availableExtensions = getAvailableExtensions(device);
 //            System.out.println("availableExtensions: ");

@@ -74,12 +74,12 @@ public class VulkanCommands {
         }
     }
 
-    static long createCommandPool(VkDevice device, QueueFamilyIndices queueFamilyIndices) {
+    public static long createCommandPool(VkDevice device, int queueFamilyIndices) {
         try (MemoryStack stack = stackPush()) {
             VkCommandPoolCreateInfo poolInfo = VkCommandPoolCreateInfo.calloc(stack);
             poolInfo.sType(VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO);
             poolInfo.flags(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-            poolInfo.queueFamilyIndex(queueFamilyIndices.getGraphicsFamily());
+            poolInfo.queueFamilyIndex(queueFamilyIndices);
 
             LongBuffer pCommandPool = stack.mallocLong(1);
 
