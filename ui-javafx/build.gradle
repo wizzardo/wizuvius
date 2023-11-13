@@ -3,31 +3,32 @@ apply plugin: "java-library"
 sourceCompatibility = 11
 targetCompatibility = 11
 
-dependencies {
-    api(project(":engine"))
-
+allprojects {
     def os = ""
     if (org.gradle.internal.os.OperatingSystem.current().isLinux()) {
         os = "linux"
-        api(project(":ui-javafx:linux"))
+        project.ext.javafxHelper = ":ui-javafx:linux"
     } else if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
         os = "mac"
-        api(project(":ui-javafx:macos"))
+        project.ext.javafxHelper = ":ui-javafx:macos"
     } else if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
         os = "win"
-        api(project(":ui-javafx:windows"))
+        project.ext.javafxHelper = ":ui-javafx:windows"
     }
-
     def arch = ""
     if (System.getProperty("os.arch") == "aarch64") {
         arch = "-aarch64"
     }
+    project.ext.javaFxVersion = "21.0.1"
+    project.ext.javaFxOsSuffix = os
+    project.ext.javaFxArchSuffix = arch
+    project.ext.javaFx = "${javaFxVersion}:${os}${arch}"
+}
 
-//    def javaFx = "18-ea+9:linux"
-    def javaFx = "18.0.2:${os}${arch}"
-//    def javaFx = "16:linux"
-//    def javaFx = "17-ea+2:linux"
-//    def javaFx = "11.0.2:linux"
+dependencies {
+    api(project(":engine"))
+//    api(project(javafxHelper))
+
     api "org.openjfx:javafx-base:$javaFx"
     api "org.openjfx:javafx-web:$javaFx"
     api "org.openjfx:javafx-graphics:$javaFx"
