@@ -79,17 +79,16 @@ public class SampleApp extends AbstractSampleApp {
             if (button == GLFW_MOUSE_BUTTON_1 && pressed) {
                 mousePosition[0] = (float) x / extentScale;
                 mousePosition[1] = (float) y / extentScale;
+                return false;
             }
+            return true;
         });
         inputsManager.addScrollListener((x, y, scrollX, scrollY) -> {
             zoomDistance = (float) Math.min(maxZoom, Math.max(minZoom, zoomDistance + zoomSpeed * scrollY));
             lookAt(getMainViewport().getCamera(), focusPoint);
+            return false;
         });
 
-        inputsManager.addKeyListener((key, pressed, repeat) -> {
-            if (GlfwKey.GLFW_KEY_ESCAPE == key)
-                shutdown();
-        });
     }
 
     private void rotateCamera(Camera camera, float value, boolean horizontal, float rotationSpeed) {

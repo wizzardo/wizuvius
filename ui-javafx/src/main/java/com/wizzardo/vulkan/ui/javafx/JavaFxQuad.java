@@ -90,7 +90,9 @@ public class JavaFxQuad extends Geometry {
                 int localY = (int) mousePosition.y;
 //                System.out.println("runLater.onMouseButtonEvent " + localX + " " + localY + " " + type + " " + button);
                 Platform.runLater(() -> bridge.onMouseButtonEvent(localX, localY, localX, localY, type, finalBtn));
+                return false;
             }
+            return true;
         });
 
 
@@ -110,16 +112,20 @@ public class JavaFxQuad extends Geometry {
                 int localY = (int) mousePosition.y;
 //                System.out.println("onscroll " + localX + "x" + localY + ": " + ((int) scrollX) + " " + ((int) scrollY));
                 Platform.runLater(() -> bridge.onMouseScrollEvent(localX, localY, localX, localY, scrollX, scrollY, type));
+                return false;
             }
+            return true;
         });
 
 
         inputsManager.addKeyTypedListener((codepoint, chars) -> {
             Platform.runLater(() -> bridge.onKeyTyped(KeyEvent.getExtendedKeyCodeForChar(codepoint), chars));
+            return true;
         });
 
         inputsManager.addKeyListener((key, pressed, repeat) -> {
             Platform.runLater(() -> bridge.onKey(key, pressed, repeat));
+            return true;
         });
 
     }

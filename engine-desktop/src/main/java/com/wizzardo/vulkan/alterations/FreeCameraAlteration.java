@@ -40,8 +40,9 @@ public class FreeCameraAlteration implements Alteration {
                 mousePosition[0] = (float) x;
                 mousePosition[1] = (float) y;
                 System.out.println("mouse press " + x + " " + y);
-                System.out.println("set mouse position to "+mousePosition[0]+" "+mousePosition[1]);
+                System.out.println("set mouse position to " + mousePosition[0] + " " + mousePosition[1]);
             }
+            return true;
         });
 
 
@@ -55,6 +56,7 @@ public class FreeCameraAlteration implements Alteration {
             }
 
 //            System.out.println(key + " " + (pressed ? "pressed" : "released"));
+            return true;
         });
     }
 

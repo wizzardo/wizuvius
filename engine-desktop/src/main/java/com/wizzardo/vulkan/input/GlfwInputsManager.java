@@ -21,6 +21,7 @@ public class GlfwInputsManager implements InputsManager {
     protected List<ScrollListener> scrollListeners = new CopyOnWriteArrayList<>();
     protected List<KeyTypedListener> keyTypedListeners = new CopyOnWriteArrayList<>();
     protected List<KeyListener> keyListeners = new CopyOnWriteArrayList<>();
+    protected List<WindowFocusListener> windowFocusListenerListeners = new CopyOnWriteArrayList<>();
     protected KeyState keyState = new GlfwKeyState();
     protected double mousePositionX;
     protected double mousePositionY;
@@ -76,6 +77,17 @@ public class GlfwInputsManager implements InputsManager {
                         mousePositionY = posY.get();
                     }
                 }
+                try {
+                    List<WindowFocusListener> list = this.windowFocusListenerListeners;
+                    for (int i = 0; i < list.size(); i++) {
+                        try {
+                            list.get(i).onFocusChanged(focused);
+                        } catch (IndexOutOfBoundsException ignored) {
+                        }
+                    }
+                } catch (Exception e) {
+                    application.logE(e::getMessage, e);
+                }
             });
 
             glfwSetKeyCallback(application.getWindow(), (window, key, scancode, action, mods) -> {
@@ -90,7 +102,9 @@ public class GlfwInputsManager implements InputsManager {
                     List<KeyListener> list = this.keyListeners;
                     for (int i = 0; i < list.size(); i++) {
                         try {
-                            list.get(i).onKey(key, pressed, repeat);
+                            if(!list.get(i).onKey(key, pressed, repeat)){
+                                break;
+                            }
                         } catch (IndexOutOfBoundsException ignored) {
                         }
                     }
@@ -120,7 +134,9 @@ public class GlfwInputsManager implements InputsManager {
                     List<ScrollListener> list = this.scrollListeners;
                     for (int i = 0; i < list.size(); i++) {
                         try {
-                            list.get(i).onScroll(mousePositionX, mousePositionY, xoffset, yoffset);
+                            if(!list.get(i).onScroll(mousePositionX, mousePositionY, xoffset, yoffset)){
+                                break;
+                            }
                         } catch (IndexOutOfBoundsException ignored) {
                         }
                     }
@@ -138,7 +154,9 @@ public class GlfwInputsManager implements InputsManager {
                         List<MouseButtonListener> list = this.mouseButtonListeners;
                         for (int i = 0; i < list.size(); i++) {
                             try {
-                                list.get(i).onMouseButtonEvent(mousePositionX, mousePositionY, button, pressed);
+                                if (!list.get(i).onMouseButtonEvent(mousePositionX, mousePositionY, button, pressed)) {
+                                    break;
+                                }
                             } catch (IndexOutOfBoundsException ignored) {
                             }
                         }
@@ -151,9 +169,12 @@ public class GlfwInputsManager implements InputsManager {
             glfwSetCharCallback(application.getWindow(), (window, codepoint) -> {
                 try {
                     List<KeyTypedListener> list = this.keyTypedListeners;
+                    char[] chars = Character.toChars(codepoint);
                     for (int i = 0; i < list.size(); i++) {
                         try {
-                            list.get(i).onChar(codepoint, Character.toChars(codepoint));
+                            if (!list.get(i).onChar(codepoint, chars)) {
+                                break;
+                            }
                         } catch (IndexOutOfBoundsException ignored) {
                         }
                     }
@@ -230,6 +251,16 @@ public class GlfwInputsManager implements InputsManager {
     @Override
     public void removeKeyListener(KeyListener listener) {
         keyListeners.remove(listener);
+    }
+
+    @Override
+    public void addWindowFocusListener(WindowFocusListener listener) {
+        windowFocusListenerListeners.add(listener);
+    }
+
+    @Override
+    public void removeWindowFocusListener(WindowFocusListener listener) {
+        windowFocusListenerListeners.remove(listener);
     }
 
     @Override

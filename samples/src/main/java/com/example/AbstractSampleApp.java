@@ -22,15 +22,23 @@ public abstract class AbstractSampleApp extends DesktopVulkanApplication {
         super.initVulkan();
 
         inputsManager.addKeyListener((key, pressed, repeat) -> {
-            if (GlfwKey.GLFW_KEY_ESCAPE == key)
+            if (GlfwKey.GLFW_KEY_ESCAPE == key) {
                 shutdown();
-            else if (GlfwKey.GLFW_KEY_MINUS == key && pressed) {
-                setFpsLimit(getFpsLimit() / 2);
+                return false;
+            } else if (GlfwKey.GLFW_KEY_MINUS == key && pressed) {
+                if (getFpsLimit() != -1)
+                    setFpsLimit(getFpsLimit() / 2);
+                else
+                    setFpsLimit(30);
+
                 System.out.println("set fps limit: " + getFpsLimit());
+                return false;
             } else if (GlfwKey.GLFW_KEY_EQUAL == key && pressed) {
                 setFpsLimit(getFpsLimit() * 2);
                 System.out.println("set fps limit: " + getFpsLimit());
+                return false;
             }
+            return true;
         });
     }
 }
