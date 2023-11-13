@@ -124,13 +124,13 @@ public class Viewport {
     }
 
     protected void cleanupSwapChain(VkDevice device, Node node) {
-        List<Spatial> children = node.getChildren();
+        List<Node> children = node.getChildren();
         for (int i = 0; i < children.size(); i++) {
-            Spatial spatial = children.get(i);
+            Node spatial = children.get(i);
             if (spatial instanceof Geometry) {
                 ((Geometry) spatial).cleanupSwapChainObjects(device);
-            } else if (spatial instanceof Node) {
-                cleanupSwapChain(device, (Node) spatial);
+            } else {
+                cleanupSwapChain(device, spatial);
             }
         }
     }
@@ -147,13 +147,13 @@ public class Viewport {
 
 
     protected void cleanup(VkDevice device, Node node) {
-        List<Spatial> children = node.getChildren();
+        List<Node> children = node.getChildren();
         for (int i = 0; i < children.size(); i++) {
-            Spatial spatial = children.get(i);
+            Node spatial = children.get(i);
             if (spatial instanceof Geometry) {
                 ((Geometry) spatial).cleanup(device);
-            } else if (spatial instanceof Node) {
-                cleanup(device, (Node) spatial);
+            } else {
+                cleanup(device, spatial);
             }
         }
     }
@@ -174,28 +174,30 @@ public class Viewport {
     }
 
     protected void updateModelUniformBuffers(VulkanApplication app, int imageIndex, Node node) {
-        List<Spatial> children = node.getChildren();
+        List<Node> children = node.getChildren();
         for (int i = 0; i < children.size(); i++) {
-            Spatial spatial = children.get(i);
+            Node spatial = children.get(i);
             if (spatial instanceof Geometry) {
                 updateModelUniformBuffer(app, imageIndex, (Geometry) spatial);
-            } else if (spatial instanceof Node) {
-                updateModelUniformBuffers(app, imageIndex, (Node) spatial);
+            } else {
+                updateModelUniformBuffers(app, imageIndex, spatial);
             }
         }
     }
 
-    protected void updateFromParent(Spatial parent, Matrix4f model) {
+    protected void updateFromParent(Node parent, Matrix4f model) {
         if (parent == null)
             return;
 
         updateFromParent(parent.getParent(), model);
 
-        Transform transform = parent.getLocalTransform();
+        if (!(parent instanceof Spatial))
+            return;
+
+        Transform transform = ((Spatial) parent).getLocalTransform();
         model.translate(transform.getTranslation());
         model.rotate(transform.getRotation());
         model.scale(transform.getScale());
-
     }
 
     protected void updateModelUniformBuffer(
