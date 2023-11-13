@@ -3,6 +3,7 @@ package com.example;
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.*;
+import com.wizzardo.vulkan.material.predefined.UnshadedTexture;
 import com.wizzardo.vulkan.scene.Geometry;
 import com.wizzardo.vulkan.scene.Spatial;
 import com.wizzardo.vulkan.ui.javafx.JavaFxQuad;
@@ -41,15 +42,11 @@ public class SampleApp extends DesktopVulkanApplication {
     protected void initApp() {
         TextureImage textureImage = Unchecked.call(() -> createTextureImage("textures/viking_room.png"));
 
-        material = new Material();
-        material.setVertexShader("shaders/tri.vert.spv");
-        material.setFragmentShader("shaders/tri.frag.spv");
-        material.addTextureImage(textureImage);
-        material.setTextureSampler(createTextureSampler(textureImage.mipLevels));
-
+        material = new UnshadedTexture(textureImage);
 
         {
             Spatial spatial = loadMesh();
+            spatial.geometries().findFirst().get().setMaterial(material);
             getMainViewport().getScene().attachChild(spatial);
 //            Geometry geometry = new Geometry(mesh, material);
 //            geometry.getLocalTransform().setScale(0.5f);
@@ -165,9 +162,8 @@ public class SampleApp extends DesktopVulkanApplication {
 
     @Override
     protected void cleanup() {
-        material.cleanup(getDevice());
+        JavaFxToTextureBridge.cleanup(this);
         super.cleanup();
-        JavaFxToTextureBridge.cleanup();
     }
 
     private Spatial loadMesh() {
