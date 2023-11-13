@@ -43,7 +43,8 @@ allprojects {
     }
 //    println "System.getProperty(\"os.arch\"): ${System.getProperty("os.arch")}"
 
-    project.ext.lwjgl = "3.3.1"
+//    project.ext.lwjgl = "3.3.3-SNAPSHOT"
+    project.ext.lwjgl = "3.3.3"
     project.ext.lwjglNative = "natives-${os}${arch}"
 }
 
