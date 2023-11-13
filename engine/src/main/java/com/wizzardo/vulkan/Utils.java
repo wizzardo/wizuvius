@@ -155,7 +155,7 @@ public class Utils {
 
             vkDestroyBuffer(device, stagingBuffer, null);
             vkFreeMemory(device, stagingBufferMemory, null);
-            return new BufferHolder(vertexBuffer, vertexBufferMemory);
+            return new BufferHolder(vertexBuffer, vertexBufferMemory, bufferSize, vertexLayout.sizeof);
         }
     }
 
@@ -205,7 +205,7 @@ public class Utils {
 
             vkDestroyBuffer(device, stagingBuffer, null);
             vkFreeMemory(device, stagingBufferMemory, null);
-            return new BufferHolder(indexBuffer, indexBufferMemory);
+            return new BufferHolder(indexBuffer, indexBufferMemory, bufferSize, Integer.BYTES);
         }
     }
 }
