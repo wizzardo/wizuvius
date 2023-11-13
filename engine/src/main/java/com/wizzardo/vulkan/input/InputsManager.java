@@ -22,6 +22,10 @@ public interface InputsManager {
 
     void removeKeyListener(KeyListener listener);
 
+    void addWindowFocusListener(WindowFocusListener listener);
+
+    void removeWindowFocusListener(WindowFocusListener listener);
+
     void setCursorVisible(boolean visible);
 
     interface MouseMoveListener {
@@ -29,19 +33,35 @@ public interface InputsManager {
     }
 
     interface ScrollListener {
-        void onScroll(double x, double y, double scrollX, double scrollY);
+        /**
+         * @return true if app should continue processing listeners, false - to stop
+         */
+        boolean onScroll(double x, double y, double scrollX, double scrollY);
     }
 
     interface MouseButtonListener {
-        void onMouseButtonEvent(double x, double y, int button, boolean pressed);
+        /**
+         * @return true if app should continue processing listeners, false - to stop
+         */
+        boolean onMouseButtonEvent(double x, double y, int button, boolean pressed);
     }
 
     interface KeyTypedListener {
-        void onChar(int codepoint, char[] chars);
+        /**
+         * @return true if app should continue processing listeners, false - to stop
+         */
+        boolean onChar(int codepoint, char[] chars);
     }
 
     interface KeyListener {
-        void onKey(int key, boolean pressed, boolean repeat);
+        /**
+         * @return true if app should continue processing listeners, false - to stop
+         */
+        boolean onKey(int key, boolean pressed, boolean repeat);
+    }
+
+    interface WindowFocusListener {
+        void onFocusChanged(boolean focused);
     }
 
     KeyState getKeyState();
