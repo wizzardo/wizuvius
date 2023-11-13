@@ -6,6 +6,8 @@ import com.wizzardo.vulkan.input.GlfwInputsManager;
 import com.wizzardo.vulkan.input.InputsManager;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2;
+import org.lwjgl.vulkan.KHRPortabilityEnumeration;
 import org.lwjgl.vulkan.VkInstance;
 
 import java.io.*;
@@ -15,6 +17,8 @@ import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
