@@ -3,13 +3,15 @@ package com.wizzardo.vulkan.scene;
 import com.wizzardo.vulkan.*;
 import org.lwjgl.vulkan.VkDevice;
 
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Geometry extends Spatial {
     protected Mesh mesh;
     protected Material material;
     protected ModelViewProjectionUniformBuffers modelViewProjectionUniformBuffers;
-    protected List<Long> descriptorSets;
+    protected Map<Material, List<Long>> descriptorSetsByMaterial = new IdentityHashMap<>(8);
     protected boolean prepared = false;
 
     public Geometry() {
@@ -57,7 +59,7 @@ public class Geometry extends Spatial {
             prepared = false;
         } finally {
             modelViewProjectionUniformBuffers = null;
-            descriptorSets = null;
+            descriptorSetsByMaterial.clear();
         }
     }
 
@@ -69,29 +71,32 @@ public class Geometry extends Spatial {
         this.modelViewProjectionUniformBuffers = modelViewProjectionUniformBuffers;
     }
 
-    public List<Long> getDescriptorSets() {
-        return descriptorSets;
-    }
-
-    public long getDescriptorSet(int imageIndex) {
-        return getDescriptorSets().get(imageIndex);
-    }
-
-    public void setDescriptorSets(List<Long> descriptorSets) {
-        this.descriptorSets = descriptorSets;
+    public long getDescriptorSet(Material material, int imageIndex) {
+        List<Long> list = descriptorSetsByMaterial.get(material);
+        if (list == null) {
+            return 0;
+        }
+        return list.get(imageIndex);
     }
 
     public void prepare(VulkanApplication application) {
         if (modelViewProjectionUniformBuffers == null)
             modelViewProjectionUniformBuffers = ModelViewProjectionUniformBuffers.create(application.getPhysicalDevice(), application.getDevice(), application.getSwapChainImages());
 
-        if (descriptorSets == null) {
+        prepareDescriptorSets(application, material);
+        prepared = true;
+    }
+
+    public List<Long> prepareDescriptorSets(VulkanApplication application, Material material) {
+        List<Long> descriptorSets;
+        if ((descriptorSets = descriptorSetsByMaterial.get(material)) == null) {
             VulkanDescriptorSets.DescriptorSetsBuilder descriptorSetsBuilder = new VulkanDescriptorSets.DescriptorSetsBuilder(material.bindings)
                     .withUniformBuffers(modelViewProjectionUniformBuffers.uniformBuffers);
 
             descriptorSets = descriptorSetsBuilder.build(application.getDevice(), application.getSwapChainImages().size(), material.descriptorSetLayout, application.getDescriptorPool());
+            descriptorSetsByMaterial.put(material, descriptorSets);
         }
-        prepared = true;
+        return descriptorSets;
     }
 
     public boolean isPrepared() {
