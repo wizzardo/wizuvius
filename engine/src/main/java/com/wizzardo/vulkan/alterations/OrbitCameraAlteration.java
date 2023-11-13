@@ -19,6 +19,7 @@ public class OrbitCameraAlteration implements Alteration {
     protected final Camera camera;
     protected boolean invertX = false;
     protected boolean invertY = false;
+    protected volatile boolean enabled = true;
 
     public static final int GLFW_KEY_A = 65;
     public static final int GLFW_KEY_D = 68;
@@ -44,6 +45,9 @@ public class OrbitCameraAlteration implements Alteration {
         float[] mousePosition = new float[2];
 
         app.getInputsManager().addMouseMoveListener((x, y) -> {
+            if(!enabled)
+                return;
+
             if (!app.getInputsManager().getKeyState().isMouseButtonPressed(0))
                 return;
 
@@ -59,15 +63,32 @@ public class OrbitCameraAlteration implements Alteration {
                 rotateCamera(camera, -diffY / 100f, false, rotationSpeed);
         });
         app.getInputsManager().addMouseButtonListener((x, y, button, pressed) -> {
+            if(!enabled)
+                return true;
+
             if (button == 0 && pressed) {
                 mousePosition[0] = (float) x;
                 mousePosition[1] = (float) y;
+                return false;
             }
+            return true;
         });
         app.getInputsManager().addScrollListener((x, y, scrollX, scrollY) -> {
+            if(!enabled)
+                return true;
+
             zoomDistance = (float) Math.min(maxZoom, Math.max(minZoom, zoomDistance + zoomSpeed * scrollY));
             lookAt(camera, focusPoint);
+            return false;
         });
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 
     public float getRotationSpeed() {
