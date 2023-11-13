@@ -8,9 +8,11 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VulkanQueues {
-    public static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, long surface) {
+    public static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
         QueueFamilyIndices indices = new QueueFamilyIndices();
 
         try (MemoryStack stack = stackPush()) {
@@ -50,7 +52,36 @@ public class VulkanQueues {
         }
     }
 
-    static VkQueue createQueue(VkDevice device, int queueFamilyIndex) {
+    public static class QueueFamilyProperties {
+        public final int index;
+        public final int flags;
+
+        public QueueFamilyProperties(int index, int flags) {
+            this.index = index;
+            this.flags = flags;
+        }
+    }
+
+    public static List<QueueFamilyProperties> getQueueFamilies(VkPhysicalDevice device) {
+        List<QueueFamilyProperties> list = new ArrayList<>();
+
+        try (MemoryStack stack = stackPush()) {
+            IntBuffer queueFamilyCount = stack.ints(0);
+            vkGetPhysicalDeviceQueueFamilyProperties(device, queueFamilyCount, null);
+
+            VkQueueFamilyProperties.Buffer queueFamilies = VkQueueFamilyProperties.malloc(queueFamilyCount.get(0), stack);
+            vkGetPhysicalDeviceQueueFamilyProperties(device, queueFamilyCount, queueFamilies);
+
+            for (int i = 0; i < queueFamilies.capacity(); i++) {
+                VkQueueFamilyProperties vkQueueFamilyProperties = queueFamilies.get(i);
+                int flags = vkQueueFamilyProperties.queueFlags();
+                list.add(new QueueFamilyProperties(i, flags));
+            }
+        }
+        return list;
+    }
+
+    public static VkQueue createQueue(VkDevice device, int queueFamilyIndex) {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pQueue = stack.pointers(VK_NULL_HANDLE);
             vkGetDeviceQueue(device, queueFamilyIndex, 0, pQueue);

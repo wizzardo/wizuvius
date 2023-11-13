@@ -323,8 +323,9 @@ public abstract class VulkanApplication extends Thread {
         surface = createSurface(instance);
         physicalDevice = VulkanDevices.pickPhysicalDevice(instance, surface, bindlessTexturesEnabled);
 
-        QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(physicalDevice, surface);
-        device = VulkanDevices.createLogicalDevice(physicalDevice, indices, bindlessTexturesEnabled);
+        List<VulkanQueues.QueueFamilyProperties> queueFamilies = VulkanQueues.getQueueFamilies(physicalDevice);
+        QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(physicalDevice);
+        device = VulkanDevices.createLogicalDevice(physicalDevice, queueFamilies, bindlessTexturesEnabled);
         graphicsQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());
 
         //https://stackoverflow.com/questions/67358235/how-to-measure-execution-time-of-vulkan-pipeline
@@ -349,7 +350,7 @@ public abstract class VulkanApplication extends Thread {
 //        System.out.println(indices);
 //        presentQueue = createPresentQueue(device, indices.presentFamily);
         presentQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());
-        commandPool = VulkanCommands.createCommandPool(device, indices);
+        commandPool = VulkanCommands.createCommandPool(device, indices.getGraphicsFamily());
 
         mainViewport = new Viewport();
         guiViewport = new Viewport();
