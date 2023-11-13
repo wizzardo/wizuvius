@@ -1,6 +1,7 @@
 package com.example.cube;
 
 import com.example.AbstractSampleApp;
+import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.*;
 import com.wizzardo.vulkan.material.predefined.UnshadedColor;
 import com.wizzardo.vulkan.material.predefined.UnshadedTexture;
@@ -22,9 +23,8 @@ public class SampleApp extends AbstractSampleApp {
         getMainViewport().getCamera().lookAt(Vectors.ZERO, Vectors.UNIT_Z);
 
         {
-            TextureImage textureImage = createTextureImage(folder + "/textures/texture.jpg");
+            TextureImage textureImage = Unchecked.call(() -> createTextureImage(folder + "/textures/texture.jpg"));
             Material material = new UnshadedTexture(textureImage);
-//            Material material = new UnshadedColor(new Vector3f(1, 0, 0));
 
             Geometry geometry = new Box(material);
             addGeometry(geometry, getMainViewport());

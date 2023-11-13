@@ -108,8 +108,8 @@ public class SampleApp extends AbstractSampleApp {
 
     @Override
     protected void cleanup() {
+        JavaFxToTextureBridge.cleanup(this);
         super.cleanup();
-        JavaFxToTextureBridge.cleanup();
     }
 
 }
