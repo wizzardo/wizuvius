@@ -108,6 +108,7 @@ public abstract class VulkanApplication extends Thread {
 
     protected int swapChainImageFormat;
     protected long swapChain;
+    protected List<VulkanImages.ImageInfo> swapChainImageInfos;
     protected List<Long> swapChainImages;
     protected List<Long> swapChainImageViews;
     protected Viewport mainViewport;
@@ -401,12 +402,13 @@ public abstract class VulkanApplication extends Thread {
     protected void createSwapChainObjects() {
         SwapChainTools.CreateSwapChainResult result;
         if (headless) {
+            swapChainImageInfos = new ArrayList<>();
             try (MemoryStack stack = stackPush()) {
                 List<Long> images = new ArrayList<>(2);
                 for (int i = 0; i < 1; i++) {
                     LongBuffer image = stack.mallocLong(1);
                     LongBuffer memory = stack.mallocLong(1);
-                    VulkanImages.createImage(physicalDevice,
+                    VulkanImages.ImageInfo imageInfo = VulkanImages.createImage(physicalDevice,
                             device,
                             width,
                             height,
@@ -419,6 +421,7 @@ public abstract class VulkanApplication extends Thread {
                             memory
                     );
                     images.add(image.get());
+                    swapChainImageInfos.add(imageInfo);
                 }
 
                 VkExtent2D extent = SwapChainTools.createExtent(width, height);
@@ -564,6 +567,12 @@ public abstract class VulkanApplication extends Thread {
         guiViewport.cleanupSwapChain(device);
 
         swapChainImageViews.forEach(imageView -> vkDestroyImageView(device, imageView, null));
+        if (headless) {
+            for (VulkanImages.ImageInfo image : swapChainImageInfos) {
+                vkDestroyImage(device, image.imagePointer, null);
+                vkFreeMemory(device, image.memoryPointer, null);
+            }
+        }
 
         if (swapChain != 0) {
             vkDestroySwapchainKHR(device, swapChain, null);
@@ -590,7 +599,10 @@ public abstract class VulkanApplication extends Thread {
             destroyDebugUtilsMessengerEXT(instance, debugMessenger, null);
         }
 
-        vkDestroySurfaceKHR(instance, surface, null);
+        if (surface != 0) {
+            vkDestroySurfaceKHR(instance, surface, null);
+            surface = 0;
+        }
         vkDestroyInstance(instance, null);
     }
 

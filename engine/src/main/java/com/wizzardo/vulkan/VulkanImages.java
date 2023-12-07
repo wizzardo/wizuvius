@@ -34,7 +34,19 @@ public class VulkanImages {
         }
     }
 
-    static long createImage(
+    public static class ImageInfo{
+       public final long imagePointer;
+       public final long memoryPointer;
+       public final long sizeBytes;
+
+        public ImageInfo(long imagePointer, long memoryPointer, long sizeBytes) {
+            this.imagePointer = imagePointer;
+            this.memoryPointer = memoryPointer;
+            this.sizeBytes = sizeBytes;
+        }
+    }
+
+    static ImageInfo createImage(
             VkPhysicalDevice physicalDevice,
             VkDevice device,
             int width,
@@ -81,7 +93,7 @@ public class VulkanImages {
             }
 
             vkBindImageMemory(device, pTextureImage.get(0), pTextureImageMemory.get(0), 0);
-            return memorySize;
+            return new ImageInfo(pTextureImage.get(0), pTextureImageMemory.get(0), memorySize);
         }
     }
 
@@ -228,6 +240,7 @@ public class VulkanImages {
             VkImageSubresourceRange subresourceRange
     ) {
         VkImageMemoryBarrier.Buffer imageMemoryBarrier = VkImageMemoryBarrier.calloc(1, stack);
+        imageMemoryBarrier.sType$Default();
         imageMemoryBarrier.srcAccessMask(srcAccessMask);
         imageMemoryBarrier.dstAccessMask(dstAccessMask);
         imageMemoryBarrier.oldLayout(oldImageLayout);

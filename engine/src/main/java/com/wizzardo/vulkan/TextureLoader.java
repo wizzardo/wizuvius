@@ -161,7 +161,7 @@ public class TextureLoader {
         try (MemoryStack stack = stackPush()) {
             LongBuffer pTextureImage = stack.mallocLong(1);
             LongBuffer pTextureImageMemory = stack.mallocLong(1);
-            long memorySize = VulkanImages.createImage(physicalDevice, device, width, height,
+            VulkanImages.ImageInfo imageInfo = VulkanImages.createImage(physicalDevice, device, width, height,
                     mipLevels,
                     format,
                     VK_IMAGE_TILING_OPTIMAL,
@@ -169,6 +169,7 @@ public class TextureLoader {
                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                     pTextureImage,
                     pTextureImageMemory);
+            long memorySize = imageInfo.sizeBytes;
 
             long textureImage = pTextureImage.get(0);
             long textureImageMemory = pTextureImageMemory.get(0);
