@@ -300,15 +300,18 @@ class SwapChainTools {
 //        VkExtent2D actualExtent = VkExtent2D.malloc().set(width.get(0), height.get(0));
 
 //        Log.v(TAG, "chooseSwapExtent " + width + "x" + height);
-        VkExtent2D actualExtent = VkExtent2D.malloc().set(width, height);
 
         VkExtent2D minExtent = capabilities.minImageExtent();
         VkExtent2D maxExtent = capabilities.maxImageExtent();
 
-        actualExtent.width(clamp(minExtent.width(), maxExtent.width(), actualExtent.width()));
-        actualExtent.height(clamp(minExtent.height(), maxExtent.height(), actualExtent.height()));
+        return createExtent(
+                clamp(minExtent.width(), maxExtent.width(), width),
+                clamp(minExtent.height(), maxExtent.height(), height)
+        );
+    }
 
-        return actualExtent;
+    static VkExtent2D createExtent(int width, int height) {
+        return VkExtent2D.malloc().set(width, height);
     }
 
     private static int clamp(int min, int max, int value) {

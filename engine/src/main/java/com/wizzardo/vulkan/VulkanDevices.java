@@ -100,7 +100,7 @@ public class VulkanDevices {
         }
     }
 
-    static VkPhysicalDevice pickPhysicalDevice(VkInstance instance, long surface, boolean withBindlessTextures) {
+    static VkPhysicalDevice pickPhysicalDevice(VkInstance instance, long surface, boolean withBindlessTextures, boolean headless) {
         try (MemoryStack stack = stackPush()) {
             IntBuffer deviceCount = stack.ints(0);
             vkEnumeratePhysicalDevices(instance, deviceCount, null);
@@ -119,7 +119,7 @@ public class VulkanDevices {
                 VkPhysicalDeviceProperties deviceProperties = VkPhysicalDeviceProperties.calloc(stack);
                 vkGetPhysicalDeviceProperties(device, deviceProperties);
 
-                if (isDeviceSuitable(device, surface, withBindlessTextures)) {
+                if (headless || isDeviceSuitable(device, surface, withBindlessTextures)) {
                     devices.add(new DeviceInfo(device, deviceProperties.deviceNameString(), DeviceInfo.Type.byVkType(deviceProperties.deviceType())));
                 }
             }

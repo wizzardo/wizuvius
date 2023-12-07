@@ -94,6 +94,7 @@ public abstract class VulkanApplication extends Thread {
     protected VkInstance instance;
     protected long debugMessenger;
     protected long surface;
+    protected boolean headless = false;
 
     protected VkPhysicalDevice physicalDevice;
     protected VkDevice device;
@@ -257,8 +258,6 @@ public abstract class VulkanApplication extends Thread {
         return f;
     }
 
-    ;
-
     public boolean isDevelopmentEnvironment() {
         return development;
     }
@@ -321,7 +320,7 @@ public abstract class VulkanApplication extends Thread {
         instance = getVulkanInstanceFactory().createInstance();
         debugMessenger = DebugTools.setupDebugMessenger(instance);
         surface = createSurface(instance);
-        physicalDevice = VulkanDevices.pickPhysicalDevice(instance, surface, bindlessTexturesEnabled);
+        physicalDevice = VulkanDevices.pickPhysicalDevice(instance, surface, bindlessTexturesEnabled, headless);
 
         List<VulkanQueues.QueueFamilyProperties> queueFamilies = VulkanQueues.getQueueFamilies(physicalDevice);
         QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(physicalDevice);
@@ -355,12 +354,13 @@ public abstract class VulkanApplication extends Thread {
         mainViewport = new Viewport();
         guiViewport = new Viewport();
 
-        inputsManager = initInputsManager();
+        if (!headless)
+            inputsManager = initInputsManager();
 
         createSwapChainObjects();
         createBindlessTexturesDescriptorSet();
 
-        syncObjects = SwapChainTools.createSyncObjects(device, swapChainImages, MAX_FRAMES_IN_FLIGHT);
+        syncObjects = SwapChainTools.createSyncObjects(device, swapChainImages, Math.min(swapChainImages.size(), MAX_FRAMES_IN_FLIGHT));
         mainViewport.setCommandBuffers(VulkanCommands.createEmptyCommandBuffers(device, commandPool, swapChainImages.size()));
         guiViewport.setCommandBuffers(VulkanCommands.createEmptyCommandBuffers(device, commandPool, swapChainImages.size()));
     }
@@ -399,20 +399,52 @@ public abstract class VulkanApplication extends Thread {
     }
 
     protected void createSwapChainObjects() {
-        SwapChainTools.CreateSwapChainResult result = SwapChainTools.createSwapChain(physicalDevice, device, surface, width, height);
+        SwapChainTools.CreateSwapChainResult result;
+        if (headless) {
+            try (MemoryStack stack = stackPush()) {
+                List<Long> images = new ArrayList<>(2);
+                for (int i = 0; i < 1; i++) {
+                    LongBuffer image = stack.mallocLong(1);
+                    LongBuffer memory = stack.mallocLong(1);
+                    VulkanImages.createImage(physicalDevice,
+                            device,
+                            width,
+                            height,
+                            1,
+                            VK_FORMAT_R8G8B8A8_UNORM,
+                            VK_IMAGE_TILING_OPTIMAL,
+                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                            0,
+                            image,
+                            memory
+                    );
+                    images.add(image.get());
+                }
+
+                VkExtent2D extent = SwapChainTools.createExtent(width, height);
+                result = new SwapChainTools.CreateSwapChainResult(0,
+                        images,
+                        VK_FORMAT_R8G8B8A8_UNORM,
+                        extent);
+            }
+        } else {
+            result = SwapChainTools.createSwapChain(physicalDevice, device, surface, width, height);
+        }
+
         swapChainImageFormat = result.swapChainImageFormat;
         swapChain = result.swapChain;
         swapChainImages = result.swapChainImages;
 //        swapChainExtent = result.swapChainExtent;
 
-        mainViewport.setExtent(result.swapChainExtent);
-        guiViewport.setExtent(result.swapChainExtent);
+        VkExtent2D extent = result.swapChainExtent;
+        mainViewport.setExtent(extent);
+        guiViewport.setExtent(extent);
 
         swapChainImageViews = SwapChainTools.createImageViews(device, swapChainImages, swapChainImageFormat);
         mainViewport.setRenderPass(VulkanRenderPass.createRenderPass(physicalDevice, device, swapChainImageFormat));
         guiViewport.setRenderPass(VulkanRenderPass.createGuiRenderPass(device, swapChainImageFormat));
 
-        depthResources = VulkanImages.createDepthResources(physicalDevice, device, result.swapChainExtent, graphicsQueue, commandPool);
+        depthResources = VulkanImages.createDepthResources(physicalDevice, device, extent, graphicsQueue, commandPool);
         mainViewport.setSwapChainFramebuffers(SwapChainTools.createFramebuffers(device, swapChainImageViews, depthResources.depthImageView, mainViewport.getRenderPass(), mainViewport.getExtent()));
         guiViewport.setSwapChainFramebuffers(SwapChainTools.createFramebuffers(device, swapChainImageViews, guiViewport.getRenderPass(), guiViewport.getExtent()));
         descriptorPool = VulkanDescriptorSets.createDescriptorPool(device, swapChainImages.size() * 100);
@@ -425,8 +457,8 @@ public abstract class VulkanApplication extends Thread {
         );
         System.out.println(width + "x" + height);
 
-        extentWidth = result.swapChainExtent.width();
-        extentHeight = result.swapChainExtent.height();
+        extentWidth = extent.width();
+        extentHeight = extent.height();
         System.out.println("Extent: " + extentWidth + "x" + extentHeight);
 //        guiViewport.camera.setProjection(new Matrix4f(
 //                2.0f / width, 0.0f, 0.0f, -0.0f,
@@ -533,7 +565,10 @@ public abstract class VulkanApplication extends Thread {
 
         swapChainImageViews.forEach(imageView -> vkDestroyImageView(device, imageView, null));
 
-        vkDestroySwapchainKHR(device, swapChain, null);
+        if (swapChain != 0) {
+            vkDestroySwapchainKHR(device, swapChain, null);
+            swapChain = 0;
+        }
     }
 
     protected void cleanup() {
@@ -769,23 +804,28 @@ public abstract class VulkanApplication extends Thread {
         return System.nanoTime() / 1_000_000_000.0;
     }
 
-    protected  abstract void printAllocation(String mark);
+    protected abstract void printAllocation(String mark);
 
     protected void drawFrame(DrawFrameTempData tempData) {
         printAllocation("drawFrame start");
         Frame thisFrame = getCurrentFrame();
         vkWaitForFences(device, thisFrame.pFence(tempData.pLong), true, UINT64_MAX);
 
-        int vkResult = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, thisFrame.imageAvailableSemaphore(), VK_NULL_HANDLE, tempData.pImageIndex);
-        if (vkResult == VK_ERROR_OUT_OF_DATE_KHR || vkResult == VK_SUBOPTIMAL_KHR) {
-            if (vkResult == VK_ERROR_OUT_OF_DATE_KHR)
-                logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
-            if (vkResult == VK_SUBOPTIMAL_KHR)
-                logV(() -> "VK_SUBOPTIMAL_KHR");
-            recreateSwapChain();
-            return;
-        } else if (vkResult != VK_SUCCESS) {
-            throw new RuntimeException("Cannot get image " + vkResult);
+        int vkResult;
+        if (!headless) {
+            vkResult = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, thisFrame.imageAvailableSemaphore(), VK_NULL_HANDLE, tempData.pImageIndex);
+            if (vkResult == VK_ERROR_OUT_OF_DATE_KHR || vkResult == VK_SUBOPTIMAL_KHR) {
+                if (vkResult == VK_ERROR_OUT_OF_DATE_KHR)
+                    logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
+                if (vkResult == VK_SUBOPTIMAL_KHR)
+                    logV(() -> "VK_SUBOPTIMAL_KHR");
+                recreateSwapChain();
+                return;
+            } else if (vkResult != VK_SUCCESS) {
+                throw new RuntimeException("Cannot get image " + vkResult);
+            }
+        } else {
+            tempData.pImageIndex.put(0, 0);
         }
 
         final int imageIndex = tempData.pImageIndex.get(0);
@@ -830,8 +870,10 @@ public abstract class VulkanApplication extends Thread {
         VkSubmitInfo submitInfo = tempData.submitInfo;
         submitInfo.sType(VK_STRUCTURE_TYPE_SUBMIT_INFO);
 
-        submitInfo.waitSemaphoreCount(1);
-        submitInfo.pWaitSemaphores(tempData.pLong.put(0, waitForSemaphore));
+        if (!headless) {
+            submitInfo.waitSemaphoreCount(1);
+            submitInfo.pWaitSemaphores(tempData.pLong.put(0, waitForSemaphore));
+        }
         submitInfo.pWaitDstStageMask(tempData.pInt.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT));
         submitInfo.pSignalSemaphores(thisFrame.pRenderFinishedSemaphore(tempData.pLong2));
 
@@ -845,25 +887,27 @@ public abstract class VulkanApplication extends Thread {
             throw new RuntimeException("Failed to submit draw command buffer: " + vkResult);
         }
 
-        VkPresentInfoKHR presentInfo = tempData.presentInfo;
-        presentInfo.sType(VK_STRUCTURE_TYPE_PRESENT_INFO_KHR);
-        presentInfo.pWaitSemaphores(thisFrame.pRenderFinishedSemaphore(tempData.pLong));
-        presentInfo.swapchainCount(1);
-        presentInfo.pSwapchains(tempData.pLong2.put(0, swapChain));
-        presentInfo.pImageIndices(tempData.pImageIndex);
+        if (!headless) {
+            VkPresentInfoKHR presentInfo = tempData.presentInfo;
+            presentInfo.sType(VK_STRUCTURE_TYPE_PRESENT_INFO_KHR);
+            presentInfo.pWaitSemaphores(thisFrame.pRenderFinishedSemaphore(tempData.pLong));
+            presentInfo.swapchainCount(1);
+            presentInfo.pSwapchains(tempData.pLong2.put(0, swapChain));
+            presentInfo.pImageIndices(tempData.pImageIndex);
 
-        vkResult = vkQueuePresentKHR(presentQueue, presentInfo);
-        if (vkResult == VK_ERROR_OUT_OF_DATE_KHR || vkResult == VK_SUBOPTIMAL_KHR || framebufferResize) {
-            framebufferResize = false;
-            if (vkResult == VK_ERROR_OUT_OF_DATE_KHR)
-                logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
-            if (vkResult == VK_SUBOPTIMAL_KHR)
-                logV(() -> "VK_SUBOPTIMAL_KHR");
-            if (framebufferResize)
-                logV(() -> "framebufferResize");
-            recreateSwapChain();
-        } else if (vkResult != VK_SUCCESS) {
-            throw new RuntimeException("Failed to present swap chain image");
+            vkResult = vkQueuePresentKHR(presentQueue, presentInfo);
+            if (vkResult == VK_ERROR_OUT_OF_DATE_KHR || vkResult == VK_SUBOPTIMAL_KHR || framebufferResize) {
+                framebufferResize = false;
+                if (vkResult == VK_ERROR_OUT_OF_DATE_KHR)
+                    logV(() -> "VK_ERROR_OUT_OF_DATE_KHR");
+                if (vkResult == VK_SUBOPTIMAL_KHR)
+                    logV(() -> "VK_SUBOPTIMAL_KHR");
+                if (framebufferResize)
+                    logV(() -> "framebufferResize");
+                recreateSwapChain();
+            } else if (vkResult != VK_SUCCESS) {
+                throw new RuntimeException("Failed to present swap chain image");
+            }
         }
 
         currentFrame = (currentFrame + 1) % syncObjects.getFramesCount();

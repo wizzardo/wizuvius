@@ -20,6 +20,8 @@ public abstract class AbstractSampleApp extends DesktopVulkanApplication {
     @Override
     protected void initVulkan() {
         super.initVulkan();
+        if (headless)
+            return;
 
         inputsManager.addKeyListener((key, pressed, repeat) -> {
             if (GlfwKey.GLFW_KEY_ESCAPE == key) {

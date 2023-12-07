@@ -5,6 +5,7 @@ import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.vulkan.input.GlfwInputsManager;
 import com.wizzardo.vulkan.input.InputsManager;
 import org.lwjgl.PointerBuffer;
+import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRGetPhysicalDeviceProperties2;
 import org.lwjgl.vulkan.KHRPortabilityEnumeration;
@@ -90,12 +91,14 @@ public class DesktopVulkanApplication extends VulkanApplication {
 
     @Override
     protected void doInLoop() {
-        if (glfwWindowShouldClose(window)) {
-            shutdown();
-            return;
-        }
+        if (!headless) {
+            if (glfwWindowShouldClose(window)) {
+                shutdown();
+                return;
+            }
 
-        glfwPollEvents();
+            glfwPollEvents();
+        }
         super.doInLoop();
     }
 
@@ -105,6 +108,11 @@ public class DesktopVulkanApplication extends VulkanApplication {
 
     @Override
     protected void initWindow() {
+        if (headless)
+            return;
+
+        GLFWErrorCallback.createPrint(System.err).set();
+
         if (!glfwInit()) {
             throw new RuntimeException("Cannot initialize GLFW");
         }
@@ -163,12 +171,21 @@ public class DesktopVulkanApplication extends VulkanApplication {
                     requiredExtensions.add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
                 PointerBuffer glfwExtensions = glfwGetRequiredInstanceExtensions();
-                if (glfwExtensions == null)
+                if (glfwExtensions == null && !headless) {
                     throw new IllegalStateException("Failed to get glfw extensions");
+                }
 
                 MemoryStack stack = stackGet();
-                PointerBuffer extensions = stack.mallocPointer(glfwExtensions.capacity() + requiredExtensions.size());
-                extensions.put(glfwExtensions);
+                int capacity = requiredExtensions.size();
+
+                if (glfwExtensions != null)
+                    capacity += glfwExtensions.capacity();
+
+                PointerBuffer extensions = stack.mallocPointer(capacity);
+
+                if (glfwExtensions != null)
+                    extensions.put(glfwExtensions);
+
                 for (String extension : requiredExtensions) {
                     extensions.put(stack.UTF8(extension));
                 }
