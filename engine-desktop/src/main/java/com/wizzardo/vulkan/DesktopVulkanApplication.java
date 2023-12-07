@@ -140,6 +140,9 @@ public class DesktopVulkanApplication extends VulkanApplication {
 
     @Override
     protected long createSurface(VkInstance instance) {
+        if (headless)
+            return 0;
+
         try (MemoryStack stack = stackPush()) {
             LongBuffer pSurface = stack.longs(VK_NULL_HANDLE);
 
@@ -213,6 +216,14 @@ public class DesktopVulkanApplication extends VulkanApplication {
                 shaderKind = ShaderSPIRVUtils.ShaderKind.FRAGMENT_SHADER;
             else if (nameLoweCase.endsWith(".vert"))
                 shaderKind = ShaderSPIRVUtils.ShaderKind.VERTEX_SHADER;
+            else if (nameLoweCase.endsWith(".comp"))
+                shaderKind = ShaderSPIRVUtils.ShaderKind.COMPUTE_SHADER;
+            else if (nameLoweCase.endsWith(".tesc"))
+                shaderKind = ShaderSPIRVUtils.ShaderKind.TESSELATION_CONTROL_SHADER;
+            else if (nameLoweCase.endsWith(".tese"))
+                shaderKind = ShaderSPIRVUtils.ShaderKind.TESSELATION_EVALUATION_SHADER;
+            else if (nameLoweCase.endsWith(".geom"))
+                shaderKind = ShaderSPIRVUtils.ShaderKind.GEOMETRY_SHADER;
 
             if (shaderKind != null) {
                 String source;

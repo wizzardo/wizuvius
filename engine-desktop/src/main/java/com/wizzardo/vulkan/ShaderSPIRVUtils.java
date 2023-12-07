@@ -67,7 +67,11 @@ public class ShaderSPIRVUtils {
 
         VERTEX_SHADER(shaderc_glsl_vertex_shader),
         GEOMETRY_SHADER(shaderc_glsl_geometry_shader),
-        FRAGMENT_SHADER(shaderc_glsl_fragment_shader);
+        FRAGMENT_SHADER(shaderc_glsl_fragment_shader),
+        COMPUTE_SHADER(shaderc_glsl_compute_shader),
+        TESSELATION_CONTROL_SHADER(shaderc_glsl_tess_control_shader),
+        TESSELATION_EVALUATION_SHADER(shaderc_glsl_tess_evaluation_shader),
+        ;
 
         private final int kind;
 
