@@ -20,14 +20,7 @@ public class UniformBuffers {
             LongBuffer pBufferMemory = stack.mallocLong(1);
 
             for (int i = 0; i < count; i++) {
-                VulkanBuffers.createBuffer(
-                        physicalDevice,
-                        device,
-                        size,
-                        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                        pBuffer,
-                        pBufferMemory);
+                createUniformBuffer(physicalDevice, device, size, pBuffer, pBufferMemory);
 
                 uniformBuffers.add(new UniformBuffer(pBuffer.get(0), pBufferMemory.get(0), size));
             }
@@ -40,16 +33,38 @@ public class UniformBuffers {
             LongBuffer pBuffer = stack.mallocLong(1);
             LongBuffer pBufferMemory = stack.mallocLong(1);
 
+            createUniformBuffer(physicalDevice, device, size, pBuffer, pBufferMemory);
+
+            return new UniformBuffer(pBuffer.get(0), pBufferMemory.get(0), size);
+        }
+    }
+
+    public static UniformBuffer createStorageBufferObject(VkPhysicalDevice physicalDevice, VkDevice device, int size) {
+        try (MemoryStack stack = stackPush()) {
+            LongBuffer pBuffer = stack.mallocLong(1);
+            LongBuffer pBufferMemory = stack.mallocLong(1);
+
             VulkanBuffers.createBuffer(
                     physicalDevice,
                     device,
                     size,
-                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                     pBuffer,
                     pBufferMemory);
 
             return new UniformBuffer(pBuffer.get(0), pBufferMemory.get(0), size);
         }
+    }
+
+    static void createUniformBuffer(VkPhysicalDevice physicalDevice, VkDevice device, int size, LongBuffer pBuffer, LongBuffer pBufferMemory) {
+        VulkanBuffers.createBuffer(
+                physicalDevice,
+                device,
+                size,
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                pBuffer,
+                pBufferMemory);
     }
 }

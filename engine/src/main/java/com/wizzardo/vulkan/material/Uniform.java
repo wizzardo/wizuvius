@@ -18,12 +18,21 @@ public abstract class Uniform {
     final VkDevice device;
 
     public Uniform(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int size, int binding) {
+        this(physicalDevice, device, stage, size, binding, null);
+    }
+
+    public Uniform(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int size, int binding, UniformBuffer uniformBuffer) {
         this.stage = stage;
         this.size = size;
         this.binding = binding;
         this.device = device;
-        this.uniformBuffer = UniformBuffers.createUniformBufferObject(physicalDevice, device, size);
-        uniformBuffer.map(device);
+
+        if (uniformBuffer != null) {
+            this.uniformBuffer = uniformBuffer;
+        } else {
+            this.uniformBuffer = UniformBuffers.createUniformBufferObject(physicalDevice, device, size);
+            this.uniformBuffer.map(device);
+        }
     }
 
     public void update() {
@@ -134,6 +143,27 @@ public abstract class Uniform {
         }
     }
 
+    public static class Mat4Array extends Uniform {
+        protected Matrix4f[] value;
+
+        public Mat4Array(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, Matrix4f[] value) {
+            super(physicalDevice, device, stage, java.lang.Float.BYTES * 16 * value.length, binding);
+            this.value = value;
+        }
+
+        public void set(Matrix4f[] value) {
+            this.value = value;
+            update();
+        }
+
+        @Override
+        protected void write(ByteBuffer byteBuffer) {
+            for (int i = 0; i < value.length; i++) {
+                value[i].get(i * java.lang.Float.BYTES * 16, byteBuffer);
+            }
+        }
+    }
+
     public static class Vec3Array extends Uniform {
         protected Vector3f[] value;
 
@@ -154,6 +184,33 @@ public abstract class Uniform {
                 buffer.putFloat(v.x);
                 buffer.putFloat(v.y);
                 buffer.putFloat(v.z);
+            }
+        }
+    }
+
+    public static class IntArray extends Uniform {
+        protected int[] value;
+
+        public IntArray(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, int[] value) {
+            super(physicalDevice, device, stage, java.lang.Integer.BYTES * value.length, binding);
+            this.value = value;
+        }
+
+        public IntArray(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, int[] value, UniformBuffer uniformBuffer) {
+            super(physicalDevice, device, stage, java.lang.Integer.BYTES * value.length, binding, uniformBuffer);
+            this.value = value;
+        }
+
+        public void set(int[] value) {
+            this.value = value;
+            update();
+        }
+
+        @Override
+        protected void write(ByteBuffer buffer) {
+            for (int i = 0; i < value.length; i++) {
+                int v = value[i];
+                buffer.putInt(v);
             }
         }
     }
