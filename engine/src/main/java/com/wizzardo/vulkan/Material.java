@@ -2,6 +2,7 @@ package com.wizzardo.vulkan;
 
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
+import com.wizzardo.vulkan.material.PushConstantInfo;
 import com.wizzardo.vulkan.material.SpecializationConstantInfo;
 import com.wizzardo.vulkan.material.Uniform;
 import org.lwjgl.vulkan.VkDevice;
@@ -32,6 +33,7 @@ public class Material {
     protected VertexLayout vertexLayout = DEFAULT_VERTEX_LAYOUT;
     protected boolean withUBO = true;
     protected List<SpecializationConstantInfo> constants = Collections.emptyList();
+    protected List<PushConstantInfo> pushConstants = Collections.emptyList();
     protected List<Uniform> uniforms = Collections.emptyList();
 
     public List<VulkanDescriptorSets.DescriptorSetLayoutBinding> bindings;
@@ -237,9 +239,15 @@ public class Material {
                 viewport,
                 vertexLayout,
                 constants,
+                pushConstants,
+                createRasterizationStateOptions(),
                 descriptorSetLayouts
         );
         return pipeline;
+    }
+
+    protected RasterizationStateOptions createRasterizationStateOptions() {
+        return new RasterizationStateOptions();
     }
 
     public static class VertexLayout {

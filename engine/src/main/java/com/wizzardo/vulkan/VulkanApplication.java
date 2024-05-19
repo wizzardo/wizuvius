@@ -621,6 +621,8 @@ public abstract class VulkanApplication extends Thread {
             Viewport viewport,
             Material.VertexLayout vertexLayout,
             List<SpecializationConstantInfo> constants,
+            List<PushConstantInfo> pushconstants,
+            RasterizationStateOptions rasterizationStateOptions,
             long... descriptorSetLayouts
     ) {
         try (MemoryStack stack = stackPush()) {
@@ -683,10 +685,32 @@ public abstract class VulkanApplication extends Thread {
 
             VkPipelineRasterizationStateCreateInfo rasterizer = VkPipelineRasterizationStateCreateInfo.calloc(stack);
             rasterizer.sType(VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO);
-            rasterizer.depthClampEnable(false);
-            rasterizer.rasterizerDiscardEnable(false);
-            rasterizer.polygonMode(VK_POLYGON_MODE_FILL);
-            rasterizer.lineWidth(1.0f);
+            rasterizer.depthClampEnable(rasterizationStateOptions.depthClamp);
+            rasterizer.rasterizerDiscardEnable(rasterizationStateOptions.rasterizerDiscard);
+            rasterizer.lineWidth(rasterizationStateOptions.lineWidth);
+            switch (rasterizationStateOptions.polygonMode) {
+                case FILL:
+                    rasterizer.polygonMode(VK_POLYGON_MODE_FILL);
+                    break;
+                case LINE:
+                    rasterizer.polygonMode(VK_POLYGON_MODE_LINE);
+                    break;
+                case POINT:
+                    rasterizer.polygonMode(VK_POLYGON_MODE_POINT);
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + rasterizationStateOptions.polygonMode);
+            }
+            switch (rasterizationStateOptions.frontFace) {
+                case COUNTER_CLOCKWISE:
+                    rasterizer.frontFace(VK_FRONT_FACE_COUNTER_CLOCKWISE);
+                    break;
+                case CLOCKWISE:
+                    rasterizer.frontFace(VK_FRONT_FACE_CLOCKWISE);
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + rasterizationStateOptions.frontFace);
+            }
 //            rasterizer.cullMode(VK_CULL_MODE_BACK_BIT);
             rasterizer.cullMode(VK_CULL_MODE_NONE);
             rasterizer.frontFace(VK_FRONT_FACE_COUNTER_CLOCKWISE);
