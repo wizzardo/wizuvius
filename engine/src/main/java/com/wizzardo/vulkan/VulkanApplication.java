@@ -98,6 +98,7 @@ public abstract class VulkanApplication extends Thread {
 
     protected VkPhysicalDevice physicalDevice;
     protected VkDevice device;
+    protected Set<DeviceFeature> enabledDeviceFeatures = EnumSet.of(DeviceFeature.SAMPLER_ANISOTROPY);
 
     protected int graphicsQueueTimestampValidBits;
     protected float timestampPeriod;
@@ -325,7 +326,7 @@ public abstract class VulkanApplication extends Thread {
 
         List<VulkanQueues.QueueFamilyProperties> queueFamilies = VulkanQueues.getQueueFamilies(physicalDevice);
         QueueFamilyIndices indices = VulkanQueues.findQueueFamilies(physicalDevice);
-        device = VulkanDevices.createLogicalDevice(physicalDevice, queueFamilies, bindlessTexturesEnabled);
+        device = VulkanDevices.createLogicalDevice(physicalDevice, queueFamilies, bindlessTexturesEnabled, enabledDeviceFeatures);
         graphicsQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());
 
         //https://stackoverflow.com/questions/67358235/how-to-measure-execution-time-of-vulkan-pipeline

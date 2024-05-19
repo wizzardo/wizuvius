@@ -16,7 +16,12 @@ import java.nio.IntBuffer;
 import java.util.*;
 
 public class VulkanDevices {
-    static VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice, List<VulkanQueues.QueueFamilyProperties> queueFamilyProperties, boolean withBindlessTextures) {
+    static VkDevice createLogicalDevice(
+            VkPhysicalDevice physicalDevice,
+            List<VulkanQueues.QueueFamilyProperties> queueFamilyProperties,
+            boolean withBindlessTextures,
+            Set<DeviceFeature> enabledDeviceFeatures
+    ) {
         try (MemoryStack stack = stackPush()) {
             int[] uniqueQueueFamilies = queueFamilyProperties.stream().mapToInt(it -> it.index).toArray();
             VkDeviceQueueCreateInfo.Buffer queueCreateInfos = VkDeviceQueueCreateInfo.calloc(uniqueQueueFamilies.length, stack);
@@ -29,7 +34,7 @@ public class VulkanDevices {
             }
 
             VkPhysicalDeviceFeatures deviceFeatures = VkPhysicalDeviceFeatures.calloc(stack);
-            deviceFeatures.samplerAnisotropy(true);
+            enableDeviceFeatures(deviceFeatures, enabledDeviceFeatures);
 
             Set<String> availableExtensions = getAvailableExtensions(physicalDevice);
 
@@ -60,7 +65,11 @@ public class VulkanDevices {
         }
     }
 
-    static class DeviceInfo{
+    static protected void enableDeviceFeatures(VkPhysicalDeviceFeatures physicalDeviceFeatures, Set<DeviceFeature> toEnable) {
+        toEnable.forEach(feature -> feature.enable(physicalDeviceFeatures));
+    }
+
+    static class DeviceInfo {
         final VkPhysicalDevice physicalDevice;
         final String name;
         final Type type;
@@ -84,7 +93,7 @@ public class VulkanDevices {
                 this.vkType = vkType;
             }
 
-           static Type byVkType(int type) {
+            static Type byVkType(int type) {
                 if (type == 0)
                     return OTHER;
                 if (type == 1)
