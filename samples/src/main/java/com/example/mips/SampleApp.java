@@ -37,7 +37,7 @@ public class SampleApp extends AbstractSampleApp {
 
         TextureImage textureImage = Unchecked.call(() -> createTextureImage(folder + "/textures/colored_glass_rgba.ktx2"));
 
-        Uniform.Float lodBiasUniform = new Uniform.Float(physicalDevice, device, VK_SHADER_STAGE_FRAGMENT_BIT, 2, 0);
+        Uniform.Float lodBiasUniform = new Uniform.Float(this, VK_SHADER_STAGE_FRAGMENT_BIT, 2, 0);
 
         {
             Material material = new Material() {

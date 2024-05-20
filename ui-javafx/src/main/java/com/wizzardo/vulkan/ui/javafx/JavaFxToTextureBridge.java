@@ -89,10 +89,7 @@ public class JavaFxToTextureBridge {
     protected TextureHolder createTextureHolder() {
         System.out.println("createTextureHolder. " + "free: " + freeTextures.size() + ", occupied: " + occupiedTextures.size() + ", has current: " + (currentImage.get() != null));
         TextureImage textureImage = TextureLoader.createTextureImage(
-                application.getPhysicalDevice(),
-                application.getDevice(),
-                transferQueue,
-                commandPool,
+                application,
                 textureWidth,
                 textureHeight,
                 imageFormat,

@@ -663,10 +663,7 @@ public class ModelLoader {
                 return;
 
             TextureImage image = TextureLoader.createTextureImage(
-                    application.physicalDevice,
-                    application.device,
-                    application.transferQueue,
-                    application.commandPool,
+                    application,
                     () -> data
             );
             this.textureImage = image.textureImage;

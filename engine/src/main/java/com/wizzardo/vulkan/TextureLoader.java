@@ -48,7 +48,7 @@ public class TextureLoader {
         return memoryUsed.get();
     }
 
-    public static TextureImage createTextureImage(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue graphicsQueue, long commandPool, Supplier<ByteBuffer> dataLoader) {
+    public static TextureImage createTextureImage(VulkanApplication application, Supplier<ByteBuffer> dataLoader) {
         try (MemoryStack stack = stackPush()) {
             IntBuffer pWidth = stack.mallocInt(1);
             IntBuffer pHeight = stack.mallocInt(1);
@@ -69,7 +69,7 @@ public class TextureLoader {
 
             try {
 //                return createTextureImage(physicalDevice, device, graphicsQueue, commandPool, pixels, width, height, imageSize, VK_FORMAT_R8G8B8A8_SRGB, mipLevels);
-                return createTextureImage(physicalDevice, device, graphicsQueue, commandPool, pixels, width, height, imageSize, VK_FORMAT_R8G8B8A8_UNORM, mipLevels);
+                return createTextureImage(application, pixels, width, height, imageSize, VK_FORMAT_R8G8B8A8_UNORM, mipLevels);
             } finally {
                 stbi_image_free(pixels);
             }
@@ -77,10 +77,7 @@ public class TextureLoader {
     }
 
     public static TextureImage createTextureImage(
-            VkPhysicalDevice physicalDevice,
-            VkDevice device,
-            VkQueue queue,
-            long commandPool,
+            VulkanApplication application,
             ByteBuffer pixels,
             int width,
             int height,
@@ -88,6 +85,10 @@ public class TextureLoader {
             int format,
             int mipLevels
     ) {
+        VkDevice device = application.getDevice();
+        VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
+        VkQueue queue = application.getTransferQueue();
+        long commandPool = application.getCommandPool();
         try (MemoryStack stack = stackPush()) {
             LongBuffer pStagingBuffer = stack.mallocLong(1);
             LongBuffer pStagingBufferMemory = stack.mallocLong(1);
@@ -138,26 +139,39 @@ public class TextureLoader {
             if (mipLevels > 1)
                 generateMipmaps(physicalDevice, device, queue, commandPool, textureImage, format, width, height, mipLevels);
 
+
+            VulkanImages.transitionImageLayout(
+                    device,
+                    queue,
+                    commandPool,
+                    textureImage,
+                    format,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    mipLevels
+            );
+
             vkDestroyBuffer(device, pStagingBuffer.get(0), null);
             vkFreeMemory(device, pStagingBufferMemory.get(0), null);
 
             long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
 
             memoryUsed.addAndGet(imageSize);
-            return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView, imageSize);
+            return new TextureImage(application, mipLevels, textureImage, textureImageMemory, textureImageView, imageSize);
         }
     }
 
     public static TextureImage createTextureImage(
-            VkPhysicalDevice physicalDevice,
-            VkDevice device,
-            VkQueue queue,
-            long commandPool,
+            VulkanApplication application,
             int width,
             int height,
             int format,
             int mipLevels
     ) {
+        VkDevice device = application.getDevice();
+        VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
+        VkQueue queue = application.getTransferQueue();
+        long commandPool = application.getCommandPool();
         try (MemoryStack stack = stackPush()) {
             LongBuffer pTextureImage = stack.mallocLong(1);
             LongBuffer pTextureImageMemory = stack.mallocLong(1);
@@ -191,7 +205,7 @@ public class TextureLoader {
             long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
 
             memoryUsed.addAndGet(memorySize);
-            return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView, memorySize);
+            return new TextureImage(application, mipLevels, textureImage, textureImageMemory, textureImageView, memorySize);
         }
     }
 
@@ -371,21 +385,23 @@ public class TextureLoader {
         }
     }
 
-    public static TextureImage createTextureImageKtx(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue transferQueue, long commandPool, File assetFile) throws IOException {
+    public static TextureImage createTextureImageKtx(VulkanApplication application, File assetFile) throws IOException {
         initKtxSupport();
 
         String fileCanonicalPath = assetFile.getCanonicalPath();
         KtxTexture1 texture = null;
         try {
             texture = KtxTexture1.createFromNamedFile(fileCanonicalPath, KtxTextureCreateFlagBits.LOAD_IMAGE_DATA_BIT);
-            return createTextureImage(physicalDevice, device, transferQueue, commandPool, texture, VkFormat.VK_FORMAT_R8G8B8A8_UNORM, null);
+            return createTextureImage(application, texture, VkFormat.VK_FORMAT_R8G8B8A8_UNORM, null);
         } finally {
             cleanupAfterKtxRead(assetFile, fileCanonicalPath, texture);
         }
     }
 
-    public static TextureImage createTextureImageKtx2(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue transferQueue, long commandPool, File assetFile) throws IOException {
+    public static TextureImage createTextureImageKtx2(VulkanApplication application, File assetFile) throws IOException {
         initKtxSupport();
+        VkDevice device = application.getDevice();
+        VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
 
         String fileCanonicalPath = assetFile.getCanonicalPath();
         KtxTexture2 texture = null;
@@ -427,21 +443,22 @@ public class TextureLoader {
                     throw new IllegalStateException("Couldn't find transcode format");
             }
 
-            return createTextureImage(physicalDevice, device, transferQueue, commandPool, texture, texture.getVkFormat(), stopwatch);
+            return createTextureImage(application, texture, texture.getVkFormat(), stopwatch);
         } finally {
             cleanupAfterKtxRead(assetFile, fileCanonicalPath, texture);
         }
     }
 
     private static TextureImage createTextureImage(
-            VkPhysicalDevice physicalDevice,
-            VkDevice device,
-            VkQueue transferQueue,
-            long commandPool,
+            VulkanApplication application,
             KtxTexture texture,
             int format,
             Stopwatch stopwatch
     ) {
+        VkDevice device = application.getDevice();
+        VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
+        VkQueue transferQueue = application.getTransferQueue();
+        long commandPool = application.getCommandPool();
         ByteBuffer buffer = getAllData(texture);
         if (stopwatch != null)
             System.out.println(stopwatch);
@@ -533,7 +550,7 @@ public class TextureLoader {
             long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
 
             memoryUsed.addAndGet(imageSize);
-            return new TextureImage(mipLevels, textureImage, textureImageMemory, textureImageView, imageSize);
+            return new TextureImage(application, mipLevels, textureImage, textureImageMemory, textureImageView, imageSize);
         }
     }
 

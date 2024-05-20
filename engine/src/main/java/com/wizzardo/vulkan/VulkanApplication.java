@@ -134,6 +134,7 @@ public abstract class VulkanApplication extends Thread {
     protected boolean framebufferResize;
     protected Queue<Runnable> tasks = new ConcurrentLinkedQueue<>();
     protected AtomicArrayList<Alteration> alterations = new AtomicArrayList<>(16);
+    protected ResourceCleaner resourceCleaner;
 
 
     protected long previousPrintFps = System.nanoTime();
@@ -151,6 +152,7 @@ public abstract class VulkanApplication extends Thread {
 
     public void run() {
         initWindow();
+        initCleaner();
         initVulkan();
         initApp();
         mainLoop();
@@ -208,6 +210,11 @@ public abstract class VulkanApplication extends Thread {
     protected void initApp() {
     }
 
+    protected void initCleaner() {
+        resourceCleaner = new ResourceCleaner();
+        resourceCleaner.start();
+    }
+
     protected abstract InputsManager initInputsManager();
 
     public TextureImage createTextureImage(String asset) throws IOException {
@@ -217,9 +224,9 @@ public abstract class VulkanApplication extends Thread {
             if (assetFile == null)
                 return createTextureImage(asset + "2");
 
-            return TextureLoader.createTextureImageKtx(physicalDevice, device, transferQueue, commandPool, assetFile);
+            return TextureLoader.createTextureImageKtx(this, assetFile);
         } else if (assetLowerCase.endsWith(".ktx2")) {
-            return TextureLoader.createTextureImageKtx2(physicalDevice, device, transferQueue, commandPool, getAssetFile(asset));
+            return TextureLoader.createTextureImageKtx2(this, getAssetFile(asset));
         }
 
         Supplier<ByteBuffer> loader = () -> Unchecked.call(() -> {
@@ -229,11 +236,11 @@ public abstract class VulkanApplication extends Thread {
             buffer.flip();
             return buffer;
         });
-        return TextureLoader.createTextureImage(physicalDevice, device, transferQueue, commandPool, loader);
+        return TextureLoader.createTextureImage(this, loader);
     }
 
-    public long createTextureSampler(int mipLevels) {
-        return TextureLoader.createTextureSampler(device, mipLevels);
+    public TextureSampler createTextureSampler(int mipLevels) {
+        return new TextureSampler(this, TextureLoader.createTextureSampler(device, mipLevels));
     }
 
     protected abstract void logV(Supplier<String> data);
@@ -270,6 +277,10 @@ public abstract class VulkanApplication extends Thread {
 
     public VkPhysicalDevice getPhysicalDevice() {
         return physicalDevice;
+    }
+
+    public ResourceCleaner getResourceCleaner() {
+        return resourceCleaner;
     }
 
     public long getCommandPool() {
@@ -310,6 +321,10 @@ public abstract class VulkanApplication extends Thread {
 
     public void addTask(Runnable runnable) {
         tasks.add(runnable);
+    }
+
+    public void addCleanupTask(Object object, Runnable runnable) {
+        resourceCleaner.addTask(object, runnable);
     }
 
     protected void initVulkan() {
@@ -582,6 +597,7 @@ public abstract class VulkanApplication extends Thread {
     }
 
     protected void cleanup() {
+        resourceCleaner.shutdown();
         cleanupSwapChain();
 
         if (bindlessTexturePool != null)

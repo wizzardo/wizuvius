@@ -2,10 +2,7 @@ package com.example.descriptor_indexing;
 
 import com.example.AbstractSampleApp;
 import com.wizzardo.tools.misc.Unchecked;
-import com.wizzardo.vulkan.Material;
-import com.wizzardo.vulkan.TextureImage;
-import com.wizzardo.vulkan.TextureLoader;
-import com.wizzardo.vulkan.Vectors;
+import com.wizzardo.vulkan.*;
 import com.wizzardo.vulkan.material.Uniform;
 import com.wizzardo.vulkan.material.predefined.UnshadedColor;
 import com.wizzardo.vulkan.material.predefined.UnshadedTexture;
@@ -30,7 +27,7 @@ public class SampleApp extends AbstractSampleApp {
     int texturesCount = 32;
     List<TextureImage> textures = new ArrayList<>(texturesCount);
     Uniform.Int textureIndexUniform;
-    long textureSampler;
+    TextureSampler textureSampler;
 
     @Override
     protected void initApp() {
@@ -43,7 +40,7 @@ public class SampleApp extends AbstractSampleApp {
 
 //            Material material = new UnshadedColor(new Vector3f(1, 0, 0));
 
-            textureIndexUniform = new Uniform.Int(physicalDevice, device, VK10.VK_SHADER_STAGE_FRAGMENT_BIT, 1, 0);
+            textureIndexUniform = new Uniform.Int(this, VK10.VK_SHADER_STAGE_FRAGMENT_BIT, 1, 0);
             Material material = new Material() {
                 {
                     withUBO = true;
@@ -75,7 +72,7 @@ public class SampleApp extends AbstractSampleApp {
             }
             byteBuffer.flip();
 
-            TextureImage textureImage = TextureLoader.createTextureImage(physicalDevice, device, transferQueue, commandPool, byteBuffer, width, height, byteBuffer.capacity(), VK_FORMAT_R8G8B8A8_UNORM, 1);
+            TextureImage textureImage = TextureLoader.createTextureImage(this, byteBuffer, width, height, byteBuffer.capacity(), VK_FORMAT_R8G8B8A8_UNORM, 1);
             bindlessTexturePool.add(textureImage, textureSampler);
             textures.add(textureImage);
         }

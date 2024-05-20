@@ -20,7 +20,7 @@ public class UniformBuffer {
         this.size = size;
     }
 
-    public ByteBuffer map(VkDevice device) {
+    public ByteBuffer map(VkDevice device, ResourceCleaner cleaner) {
         if (buffer != null)
             return buffer;
 
@@ -29,6 +29,7 @@ public class UniformBuffer {
             vkMapMemory(device, memoryAddress, 0, size, 0, pointer);
             buffer = pointer.getByteBuffer(0, size);
         }
+        cleaner.addTask(this, createCleanupTask(device));
         return buffer;
     }
 
@@ -36,16 +37,14 @@ public class UniformBuffer {
         return buffer;
     }
 
-    public void cleanup(VkDevice device) {
-        if (buffer == null)
-            return;
+    public Runnable createCleanupTask(VkDevice device) {
+        long address = this.address;
+        long memoryAddress = this.memoryAddress;
 
-        try {
+        return () -> {
             vkUnmapMemory(device, memoryAddress);
             vkDestroyBuffer(device, address, null);
             vkFreeMemory(device, memoryAddress, null);
-        } finally {
-            buffer = null;
-        }
+        };
     }
 }

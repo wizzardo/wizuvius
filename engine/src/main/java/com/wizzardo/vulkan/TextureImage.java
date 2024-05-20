@@ -1,12 +1,11 @@
 package com.wizzardo.vulkan;
 
-import static org.lwjgl.vulkan.VK10.vkDestroyImage;
-import static org.lwjgl.vulkan.VK10.vkDestroyImageView;
-import static org.lwjgl.vulkan.VK10.vkFreeMemory;
-
 import org.lwjgl.vulkan.VkDevice;
 
 import java.io.IOException;
+
+import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK10.vkDestroyBuffer;
 
 public class TextureImage {
     protected int mipLevels;
@@ -51,11 +50,21 @@ public class TextureImage {
         this.memoryUsage = memoryUsage;
     }
 
-    public TextureImage(int mipLevels, long textureImage, long textureImageMemory, long textureImageView) {
+    public TextureImage(VulkanApplication application,int mipLevels, long textureImage, long textureImageMemory, long textureImageView, long memoryUsage) {
         this.mipLevels = mipLevels;
         this.textureImage = textureImage;
         this.textureImageMemory = textureImageMemory;
         this.textureImageView = textureImageView;
+        this.memoryUsage = memoryUsage;
+        application.addCleanupTask(this, createCleanupTask(application.getDevice()));
+    }
+
+    public TextureImage(VulkanApplication application, int mipLevels, long textureImage, long textureImageMemory, long textureImageView) {
+        this.mipLevels = mipLevels;
+        this.textureImage = textureImage;
+        this.textureImageMemory = textureImageMemory;
+        this.textureImageView = textureImageView;
+        application.addCleanupTask(this, createCleanupTask(application.getDevice()));
     }
 
     public TextureImage(String filename, Type type) {
@@ -71,22 +80,30 @@ public class TextureImage {
         this.textureImage = image.textureImage;
         this.textureImageMemory = image.textureImageMemory;
         this.textureImageView = image.textureImageView;
+
+        application.addCleanupTask(this, createCleanupTask(application.getDevice()));
     }
 
     public int getIndex(){
         return index;
     }
 
-    public void cleanup(VkDevice device) {
-        if (textureImageView != 0)
-            vkDestroyImageView(device, textureImageView, null);
-        if (textureImage != 0)
-            vkDestroyImage(device, textureImage, null);
-        if (textureImageMemory != 0)
-            vkFreeMemory(device, textureImageMemory, null);
+    public Runnable createCleanupTask(VkDevice device) {
+        long textureImage = this.textureImage;
+        long textureImageMemory = this.textureImageMemory;
+        long textureImageView = this.textureImageView;
+        long memoryUsage = this.memoryUsage;
 
-        TextureLoader.memoryUsed.addAndGet(-memoryUsage);
-        memoryUsage = 0;
+        return () -> {
+            if (textureImageView != 0)
+                vkDestroyImageView(device, textureImageView, null);
+            if (textureImage != 0)
+                vkDestroyImage(device, textureImage, null);
+            if (textureImageMemory != 0)
+                vkFreeMemory(device, textureImageMemory, null);
+
+            TextureLoader.memoryUsed.addAndGet(-memoryUsage);
+        };
     }
 
     public String getFilename() {

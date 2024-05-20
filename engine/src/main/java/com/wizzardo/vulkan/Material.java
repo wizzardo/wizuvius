@@ -29,7 +29,7 @@ public class Material {
     protected String vertexShader;
     protected String fragmentShader;
     protected List<TextureImage> textures = Collections.emptyList();
-    protected long textureSampler;
+    protected TextureSampler textureSampler;
     protected VertexLayout vertexLayout = DEFAULT_VERTEX_LAYOUT;
     protected boolean withUBO = true;
     protected List<SpecializationConstantInfo> constants = Collections.emptyList();
@@ -66,6 +66,9 @@ public class Material {
     }
 
     public void addTextureImage(TextureImage textureImage) {
+        if (textures.contains(textureImage))
+            return;
+
         if (textures.isEmpty())
             textures = new ArrayList<>();
         textures.add(textureImage);
@@ -89,11 +92,11 @@ public class Material {
         }
     }
 
-    public long getTextureSampler() {
+    public TextureSampler getTextureSampler() {
         return textureSampler;
     }
 
-    public void setTextureSampler(long textureSampler) {
+    public void setTextureSampler(TextureSampler textureSampler) {
         this.textureSampler = textureSampler;
     }
 
@@ -125,26 +128,6 @@ public class Material {
         }
     }
 
-    public void cleanup(VkDevice device) {
-        try {
-            if (textureSampler != 0L)
-                vkDestroySampler(device, textureSampler, null);
-            if (descriptorSetLayout != 0L)
-                vkDestroyDescriptorSetLayout(device, descriptorSetLayout, null);
-            for (int i = 0; i < textures.size(); i++) {
-                TextureImage texture = textures.get(i);
-                texture.cleanup(device);
-            }
-            for (int i = 0; i < uniforms.size(); i++) {
-                Uniform uniform = uniforms.get(i);
-                uniform.cleanup(device);
-            }
-        } finally {
-            descriptorSetLayout = 0;
-            textureSampler = 0;
-        }
-    }
-
     public void prepare(VulkanApplication application, Viewport viewport) {
         for (int i = 0; i < textures.size(); i++) {
             try {
@@ -157,6 +140,9 @@ public class Material {
             VulkanDescriptorSets.DescriptorSetLayoutBuilder layoutBuilder = prepareDescriptorSetLayoutBuilder();
             bindings = layoutBuilder.bindings;
             descriptorSetLayout = layoutBuilder.build(application.getDevice());
+
+            long dsl = descriptorSetLayout;
+            application.addCleanupTask(this, () -> vkDestroyDescriptorSetLayout(application.device, dsl, null));
         }
 
         if (pipelineLayout == 0L) {
@@ -174,14 +160,14 @@ public class Material {
         if (withUBO)
             layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUBO(0, VK_SHADER_STAGE_VERTEX_BIT));
 
-        for (int i = 0; i < textures.size(); i++) {
-            TextureImage texture = textures.get(i);
-            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(layoutBuilder.bindings.size(), VK_SHADER_STAGE_FRAGMENT_BIT, texture.getTextureImageView(), textureSampler));
-        }
         for (int i = 0; i < uniforms.size(); i++) {
             Uniform uniform = uniforms.get(i);
             uniform.update();
             layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUniformBuffer(uniform.binding, uniform.stage, uniform.uniformBuffer));
+        }
+        for (int i = 0; i < textures.size(); i++) {
+            TextureImage texture = textures.get(i);
+            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(layoutBuilder.bindings.size(), VK_SHADER_STAGE_FRAGMENT_BIT, texture.getTextureImageView(), textureSampler.sampler));
         }
         return layoutBuilder;
     }
@@ -219,6 +205,7 @@ public class Material {
             return buffer;
         });
         ByteBuffer fragShaderSPIRV = Unchecked.call(() -> {
+                return null;
             byte[] bytes = IOTools.bytes(application.loadAsset(fragmentShader));
             ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
             buffer.put(bytes);

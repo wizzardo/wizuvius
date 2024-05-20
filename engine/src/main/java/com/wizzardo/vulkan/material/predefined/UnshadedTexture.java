@@ -20,7 +20,7 @@ public class UnshadedTexture extends Material {
 
     @Override
     public void prepare(VulkanApplication application, Viewport viewport) {
-        if (textureSampler == 0)
+        if (textureSampler == null)
             setTextureSampler(application.createTextureSampler(getTextures().get(0).getMipLevels()));
         super.prepare(application, viewport);
     }

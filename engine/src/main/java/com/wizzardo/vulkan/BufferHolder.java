@@ -20,20 +20,25 @@ public class BufferHolder {
         this.sizeof = sizeof;
     }
 
-    public void cleanup(VkDevice device) {
-        if (mappedBuffer != null) {
-            vkUnmapMemory(device, bufferMemory);
-            mappedBuffer = null;
-        }
-        vkDestroyBuffer(device, buffer, null);
-        vkFreeMemory(device, bufferMemory, null);
-    }
-
     public ByteBuffer getMappedBuffer() {
         return mappedBuffer;
     }
 
     public void setMappedBuffer(ByteBuffer mappedBuffer) {
         this.mappedBuffer = mappedBuffer;
+    }
+
+    public Runnable createCleanupTask(VkDevice device) {
+        ByteBuffer mappedBuffer = this.mappedBuffer;
+        long bufferMemory = this.bufferMemory;
+        long buffer = this.buffer;
+
+        return () -> {
+            if (mappedBuffer != null) {
+                vkUnmapMemory(device, bufferMemory);
+            }
+            vkDestroyBuffer(device, buffer, null);
+            vkFreeMemory(device, bufferMemory, null);
+        };
     }
 }

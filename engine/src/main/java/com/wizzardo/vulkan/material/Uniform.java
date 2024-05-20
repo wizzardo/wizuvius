@@ -1,7 +1,9 @@
 package com.wizzardo.vulkan.material;
 
+import com.wizzardo.vulkan.ResourceCleaner;
 import com.wizzardo.vulkan.UniformBuffer;
 import com.wizzardo.vulkan.UniformBuffers;
+import com.wizzardo.vulkan.VulkanApplication;
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -17,11 +19,15 @@ public abstract class Uniform {
     public final UniformBuffer uniformBuffer;
     final VkDevice device;
 
-    public Uniform(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int size, int binding) {
-        this(physicalDevice, device, stage, size, binding, null);
+    public Uniform(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int size, int binding, ResourceCleaner cleaner) {
+        this(physicalDevice, device, stage, size, binding, cleaner,null);
     }
 
-    public Uniform(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int size, int binding, UniformBuffer uniformBuffer) {
+    public Uniform(VulkanApplication app, int stage, int size, int binding) {
+        this(app.getPhysicalDevice(), app.getDevice(), stage, size, binding, app.getResourceCleaner(),null);
+    }
+
+    public Uniform(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int size, int binding, ResourceCleaner cleaner, UniformBuffer uniformBuffer) {
         this.stage = stage;
         this.size = size;
         this.binding = binding;
@@ -31,7 +37,7 @@ public abstract class Uniform {
             this.uniformBuffer = uniformBuffer;
         } else {
             this.uniformBuffer = UniformBuffers.createUniformBufferObject(physicalDevice, device, size);
-            this.uniformBuffer.map(device);
+            this.uniformBuffer.map(device, cleaner);
         }
     }
 
@@ -39,17 +45,13 @@ public abstract class Uniform {
         write(uniformBuffer.getBuffer().clear());
     }
 
-    public void cleanup(VkDevice device) {
-        uniformBuffer.cleanup(device);
-    }
-
     protected abstract void write(ByteBuffer byteBuffer);
 
     public static class Int extends Uniform {
         protected int value;
 
-        public Int(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, int value) {
-            super(physicalDevice, device, stage, Integer.BYTES, binding);
+        public Int(VulkanApplication app, int stage, int binding, int value) {
+            super(app, stage, Integer.BYTES, binding);
             this.value = value;
         }
 
@@ -67,8 +69,8 @@ public abstract class Uniform {
     public static class Float extends Uniform {
         protected float value;
 
-        public Float(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, float value) {
-            super(physicalDevice, device, stage, java.lang.Float.BYTES, binding);
+        public Float(VulkanApplication app, int stage, int binding, float value) {
+            super(app, stage, java.lang.Float.BYTES, binding);
             this.value = value;
         }
 
@@ -86,8 +88,8 @@ public abstract class Uniform {
     public static class Vec2 extends Uniform {
         protected Vector2f value;
 
-        public Vec2(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, Vector2f value) {
-            super(physicalDevice, device, stage, java.lang.Float.BYTES * 2, binding);
+        public Vec2(VulkanApplication app, int stage, int binding, Vector2f value) {
+            super(app, stage, java.lang.Float.BYTES * 2, binding);
             this.value = value;
         }
 
@@ -106,8 +108,8 @@ public abstract class Uniform {
     public static class Vec3 extends Uniform {
         protected Vector3f value;
 
-        public Vec3(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, Vector3f value) {
-            super(physicalDevice, device, stage, java.lang.Float.BYTES * 3, binding);
+        public Vec3(VulkanApplication app, int stage, int binding, Vector3f value) {
+            super(app, stage, java.lang.Float.BYTES * 3, binding);
             this.value = value;
         }
 
@@ -127,8 +129,8 @@ public abstract class Uniform {
     public static class Mat4 extends Uniform {
         protected Matrix4f value;
 
-        public Mat4(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, Matrix4f value) {
-            super(physicalDevice, device, stage, java.lang.Float.BYTES * 16, binding);
+        public Mat4(VulkanApplication app, int stage, int binding, Matrix4f value) {
+            super(app, stage, java.lang.Float.BYTES * 16, binding);
             this.value = value;
         }
 
@@ -146,8 +148,8 @@ public abstract class Uniform {
     public static class Mat4Array extends Uniform {
         protected Matrix4f[] value;
 
-        public Mat4Array(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, Matrix4f[] value) {
-            super(physicalDevice, device, stage, java.lang.Float.BYTES * 16 * value.length, binding);
+        public Mat4Array(VulkanApplication app, int stage, int binding, Matrix4f[] value) {
+            super(app, stage, java.lang.Float.BYTES * 16 * value.length, binding);
             this.value = value;
         }
 
@@ -167,8 +169,8 @@ public abstract class Uniform {
     public static class Vec3Array extends Uniform {
         protected Vector3f[] value;
 
-        public Vec3Array(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, Vector3f[] value) {
-            super(physicalDevice, device, stage, java.lang.Float.BYTES * 3 * value.length, binding);
+        public Vec3Array(VulkanApplication app, int stage, int binding, Vector3f[] value) {
+            super(app, stage, java.lang.Float.BYTES * 3 * value.length, binding);
             this.value = value;
         }
 
@@ -191,13 +193,13 @@ public abstract class Uniform {
     public static class IntArray extends Uniform {
         protected int[] value;
 
-        public IntArray(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, int[] value) {
-            super(physicalDevice, device, stage, java.lang.Integer.BYTES * value.length, binding);
+        public IntArray(VulkanApplication app, int stage, int binding, int[] value) {
+            super(app, stage, java.lang.Integer.BYTES * value.length, binding);
             this.value = value;
         }
 
-        public IntArray(VkPhysicalDevice physicalDevice, VkDevice device, int stage, int binding, int[] value, UniformBuffer uniformBuffer) {
-            super(physicalDevice, device, stage, java.lang.Integer.BYTES * value.length, binding, uniformBuffer);
+        public IntArray(VulkanApplication app, int stage, int binding, int[] value, UniformBuffer uniformBuffer) {
+            super(app.getPhysicalDevice(), app.getDevice(), stage, java.lang.Integer.BYTES * value.length, binding, app.getResourceCleaner(), uniformBuffer);
             this.value = value;
         }
 

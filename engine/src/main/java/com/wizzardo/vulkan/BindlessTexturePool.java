@@ -19,11 +19,13 @@ public class BindlessTexturePool {
     protected long bindlessTexturesDescriptorPool;
     protected VkDevice device;
     protected List<TextureImage> images;
+    protected List<TextureSampler> textureSamplers;
 
     public BindlessTexturePool(VkDevice device, VkPhysicalDevice physicalDevice, int size) {
         this.size = size;
         this.device = device;
         this.images = new ArrayList<>();
+        this.textureSamplers = new ArrayList<>();
 
         try (MemoryStack stack = stackPush()) {
 //            VkPhysicalDeviceProperties physicalDeviceProperties = VkPhysicalDeviceProperties.calloc(stack);
@@ -62,9 +64,10 @@ public class BindlessTexturePool {
         vkDestroyDescriptorPool(device, bindlessTexturesDescriptorPool, null);
     }
 
-    public void add(TextureImage textureImage, long textureSampler) {
+    public void add(TextureImage textureImage, TextureSampler textureSampler) {
         textureImage.index = images.size();
         images.add(textureImage);
+        textureSamplers.add(textureSampler);
 
 
         try (MemoryStack stack = stackPush()) {
@@ -81,7 +84,7 @@ public class BindlessTexturePool {
             VkDescriptorImageInfo.Buffer imageInfo = VkDescriptorImageInfo.calloc(1, stack);
             imageInfo.imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             imageInfo.imageView(textureImage.textureImageView);
-            imageInfo.sampler(textureSampler);
+            imageInfo.sampler(textureSampler.sampler);
             writeDescriptorSet.pImageInfo(imageInfo);
 
             vkUpdateDescriptorSets(device, descriptorWrites, null);

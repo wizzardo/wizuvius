@@ -154,7 +154,7 @@ public class JavaFxQuad extends Geometry {
 
             VulkanDescriptorSets.DescriptorSetLayoutBuilder layoutBuilder = new VulkanDescriptorSets.DescriptorSetLayoutBuilder();
             layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingUBO(0, VK_SHADER_STAGE_VERTEX_BIT));
-            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT, currentImage.textureImage.getTextureImageView(), material.getTextureSampler()));
+            layoutBuilder.append(new VulkanDescriptorSets.DescriptorSetLayoutBindingImageWithSampler(1, VK_SHADER_STAGE_FRAGMENT_BIT, currentImage.textureImage.getTextureImageView(), material.getTextureSampler().sampler));
 
             VulkanDescriptorSets.DescriptorSetsBuilder descriptorSetsBuilder = new VulkanDescriptorSets.DescriptorSetsBuilder(layoutBuilder.bindings)
                     .withUniformBuffers(modelViewProjectionUniformBuffers.uniformBuffers);
@@ -182,7 +182,7 @@ public class JavaFxQuad extends Geometry {
     @Override
     public void prepare(VulkanApplication application) {
         if (modelViewProjectionUniformBuffers == null)
-            modelViewProjectionUniformBuffers = ModelViewProjectionUniformBuffers.create(application.getPhysicalDevice(), application.getDevice(), application.getSwapChainImages());
+            modelViewProjectionUniformBuffers = ModelViewProjectionUniformBuffers.create(application, application.getSwapChainImages());
         prepared = true;
     }
 }

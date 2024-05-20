@@ -17,13 +17,9 @@ public class ModelViewProjectionUniformBuffers {
         this.uniformBuffers = uniformBuffers;
     }
 
-    public static ModelViewProjectionUniformBuffers create(VkPhysicalDevice physicalDevice, VkDevice device, List<Long> swapChainImages) {
-        List<UniformBuffer> list = UniformBuffers.createUniformBuffers(physicalDevice, device, swapChainImages.size(), SIZEOF);
-        list.forEach(uniformBuffer -> uniformBuffer.map(device));
+    public static ModelViewProjectionUniformBuffers create(VulkanApplication app, List<Long> swapChainImages) {
+        List<UniformBuffer> list = UniformBuffers.createUniformBuffers(app.getPhysicalDevice(), app.getDevice(), swapChainImages.size(), SIZEOF);
+        list.forEach(uniformBuffer -> uniformBuffer.map(app.getDevice(), app.getResourceCleaner()));
         return new ModelViewProjectionUniformBuffers(list);
-    }
-
-    public void cleanup(VkDevice device) {
-        uniformBuffers.forEach(ubo -> ubo.cleanup(device));
     }
 }

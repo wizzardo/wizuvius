@@ -31,7 +31,7 @@ public class UnshadedColor extends Material {
     @Override
     public void prepare(VulkanApplication application, Viewport viewport) {
         if (uniforms.isEmpty())
-            addUniform(new Uniform.Vec3(application.getPhysicalDevice(), application.getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT, 1, color));
+            addUniform(new Uniform.Vec3(application, VK_SHADER_STAGE_FRAGMENT_BIT, 1, color));
 
         updateUniforms();
         super.prepare(application, viewport);

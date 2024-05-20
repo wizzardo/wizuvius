@@ -43,17 +43,10 @@ public class Geometry extends Spatial {
         this.material = material;
     }
 
-    public void cleanup(VkDevice device) {
-        if (mesh != null)
-            mesh.cleanup(device);
-        if (material != null)
-            material.cleanup(device);
-    }
-
     public void cleanupSwapChainObjects(VkDevice device) {
         try {
-            if (modelViewProjectionUniformBuffers != null)
-                modelViewProjectionUniformBuffers.cleanup(device);
+//            if (modelViewProjectionUniformBuffers != null)
+//                modelViewProjectionUniformBuffers.cleanup(device);
             if (material != null)
                 material.cleanupSwapChainObjects(device);
             prepared = false;
@@ -81,7 +74,7 @@ public class Geometry extends Spatial {
 
     public void prepare(VulkanApplication application) {
         if (modelViewProjectionUniformBuffers == null)
-            modelViewProjectionUniformBuffers = ModelViewProjectionUniformBuffers.create(application.getPhysicalDevice(), application.getDevice(), application.getSwapChainImages());
+            modelViewProjectionUniformBuffers = ModelViewProjectionUniformBuffers.create(application, application.getSwapChainImages());
 
         prepareDescriptorSets(application, material);
         prepared = true;
