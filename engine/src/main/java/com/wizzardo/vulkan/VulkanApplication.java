@@ -56,7 +56,7 @@ import java.util.stream.Stream;
 
 public abstract class VulkanApplication extends Thread {
 
-    private static final long UINT64_MAX = 0xFFFFFFFFFFFFFFFFL;
+    protected static final long UINT64_MAX = 0xFFFFFFFFFFFFFFFFL;
     static final Set<String> VALIDATION_LAYERS;
     public static final boolean ENABLE_VALIDATION_LAYERS = DEBUG.get(false);
     public static final int MAX_FRAMES_IN_FLIGHT = 2;

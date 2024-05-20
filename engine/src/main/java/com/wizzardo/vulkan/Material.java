@@ -211,6 +211,7 @@ public class Material {
             return buffer;
         });
         ByteBuffer fragShaderSPIRV = Unchecked.call(() -> {
+            if (fragmentShader == null)
                 return null;
             byte[] bytes = IOTools.bytes(application.loadAsset(fragmentShader));
             ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);

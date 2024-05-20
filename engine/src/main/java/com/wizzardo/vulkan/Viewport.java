@@ -136,27 +136,27 @@ public class Viewport {
     }
 
     protected void cleanup(VkDevice device, long commandPool) {
-        for (Geometry preparedGeometry : geometries) {
-            preparedGeometry.cleanup(device);
-        }
-
-        cleanup(device, scene);
+//        for (Geometry preparedGeometry : geometries) {
+//            preparedGeometry.cleanup(device);
+//        }
+//
+//        cleanup(device, scene);
 
         vkFreeCommandBuffers(device, commandPool, Utils.asPointerBuffer(commandBuffers));
     }
 
 
-    protected void cleanup(VkDevice device, Node node) {
-        List<Node> children = node.getChildren();
-        for (int i = 0; i < children.size(); i++) {
-            Node spatial = children.get(i);
-            if (spatial instanceof Geometry) {
-                ((Geometry) spatial).cleanup(device);
-            } else {
-                cleanup(device, spatial);
-            }
-        }
-    }
+//    protected void cleanup(VkDevice device, Node node) {
+//        List<Node> children = node.getChildren();
+//        for (int i = 0; i < children.size(); i++) {
+//            Node spatial = children.get(i);
+//            if (spatial instanceof Geometry) {
+//                ((Geometry) spatial).cleanup(device);
+//            } else {
+//                cleanup(device, spatial);
+//            }
+//        }
+//    }
 
     public void updateModelUniformBuffers(VulkanApplication app, int imageIndex) {
 //        if (geometries.isEmpty())

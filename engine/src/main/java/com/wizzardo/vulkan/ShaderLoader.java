@@ -13,7 +13,7 @@ import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 
 public class ShaderLoader {
-    static long createShaderModule(VkDevice device, ByteBuffer spirvCode) {
+    public static long createShaderModule(VkDevice device, ByteBuffer spirvCode) {
         try (MemoryStack stack = stackPush()) {
 
             VkShaderModuleCreateInfo createInfo = VkShaderModuleCreateInfo.calloc(stack);

@@ -91,7 +91,7 @@ public class VulkanCommands {
         }
     }
 
-    static List<VkCommandBuffer> createEmptyCommandBuffers(VkDevice device, long commandPool, int count) {
+    public static List<VkCommandBuffer> createEmptyCommandBuffers(VkDevice device, long commandPool, int count) {
         List<VkCommandBuffer> commandBuffers = new ArrayList<>(count);
 
         try (MemoryStack stack = stackPush()) {

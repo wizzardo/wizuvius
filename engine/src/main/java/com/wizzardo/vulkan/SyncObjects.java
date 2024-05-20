@@ -5,7 +5,7 @@ import static org.lwjgl.vulkan.VK10.vkDestroySemaphore;
 
 import org.lwjgl.vulkan.VkDevice;
 
-class SyncObjects {
+public class SyncObjects {
     private final Frame[] frames;
     private final Frame[] framesByImage;
 
