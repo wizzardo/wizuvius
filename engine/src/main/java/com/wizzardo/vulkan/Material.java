@@ -80,6 +80,12 @@ public class Material {
         constants.add(constantInfo);
     }
 
+    public void addPushConstant(PushConstantInfo constantInfo) {
+        if (pushConstants.isEmpty())
+            pushConstants = new ArrayList<>();
+        pushConstants.add(constantInfo);
+    }
+
     public void addUniform(Uniform uniform) {
         if (uniforms.isEmpty())
             uniforms = new ArrayList<>();

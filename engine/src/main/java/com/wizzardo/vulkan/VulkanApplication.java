@@ -21,6 +21,7 @@ import com.wizzardo.tools.io.FileTools;
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.input.InputsManager;
+import com.wizzardo.vulkan.material.PushConstantInfo;
 import com.wizzardo.vulkan.material.SpecializationConstantInfo;
 import com.wizzardo.vulkan.misc.AtomicArrayList;
 import com.wizzardo.vulkan.scene.Geometry;
@@ -781,6 +782,20 @@ public abstract class VulkanApplication extends Thread {
             VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkPipelineLayoutCreateInfo.calloc(stack);
             pipelineLayoutInfo.sType(VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
             pipelineLayoutInfo.pSetLayouts(stack.longs(descriptorSetLayouts));
+
+            if (!pushconstants.isEmpty()) {
+                VkPushConstantRange.Buffer pushConstantRanges = VkPushConstantRange.calloc(pushconstants.size(), stack);
+                int offset = 0;
+                for (int i = 0; i < pushconstants.size(); i++) {
+                    PushConstantInfo pushConstantInfo = pushconstants.get(i);
+                    VkPushConstantRange pushConstantRange = pushConstantRanges.get(i);
+                    pushConstantRange.stageFlags(pushConstantInfo.stage);
+                    pushConstantRange.size(pushConstantInfo.size);
+                    pushConstantRange.offset(offset);
+                    offset += pushConstantInfo.size;
+                }
+                pipelineLayoutInfo.pPushConstantRanges(pushConstantRanges);
+            }
 
             LongBuffer pPipelineLayout = stack.longs(VK_NULL_HANDLE);
 
