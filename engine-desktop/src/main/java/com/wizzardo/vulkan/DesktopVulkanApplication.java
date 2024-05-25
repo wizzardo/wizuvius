@@ -4,6 +4,7 @@ import com.wizzardo.tools.io.FileTools;
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.vulkan.input.GlfwInputsManager;
 import com.wizzardo.vulkan.input.InputsManager;
+import com.wizzardo.vulkan.misc.ResourceChangeListener;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.system.MemoryStack;
@@ -262,7 +263,7 @@ public class DesktopVulkanApplication extends VulkanApplication {
     }
 
     @Override
-    public boolean addResourceChangeListener(Consumer<File> listener) {
+    public boolean addResourceChangeListener(ResourceChangeListener listener) {
         if (resourcesListener != null)
             return resourcesListener.addListener(listener);
         return false;

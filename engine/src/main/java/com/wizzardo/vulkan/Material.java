@@ -5,10 +5,12 @@ import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.material.PushConstantInfo;
 import com.wizzardo.vulkan.material.SpecializationConstantInfo;
 import com.wizzardo.vulkan.material.Uniform;
+import com.wizzardo.vulkan.misc.ResourceChangeListener;
 import org.lwjgl.vulkan.VkDevice;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -147,8 +149,7 @@ public class Material {
             bindings = layoutBuilder.bindings;
             descriptorSetLayout = layoutBuilder.build(application.getDevice());
 
-            long dsl = descriptorSetLayout;
-            application.addCleanupTask(this, () -> vkDestroyDescriptorSetLayout(application.device, dsl, null));
+            createDescriptorSetLayoutCleanupTask(application, descriptorSetLayout);
         }
 
         if (pipelineLayout == 0L) {
@@ -159,6 +160,13 @@ public class Material {
             graphicsPipeline = pipeline.graphicsPipeline;
         }
 
+    }
+
+    protected void createDescriptorSetLayoutCleanupTask(VulkanApplication application, long dsl) {
+        application.addCleanupTask(this, () -> {
+            System.out.println("CleanupTask Material vkDestroyDescriptorSetLayout");
+            vkDestroyDescriptorSetLayout(application.device, dsl, null);
+        });
     }
 
     protected VulkanDescriptorSets.DescriptorSetLayoutBuilder prepareDescriptorSetLayoutBuilder() {
@@ -180,23 +188,29 @@ public class Material {
 
     protected void addShaderChangeListener(VulkanApplication application, Viewport viewport) {
         if (application.isDevelopmentEnvironment()) {
-            Consumer<File> fileChangeListener = file -> {
-                if (pipelineLayout == 0)
-                    return;
+            WeakReference<Material> materialReference = new WeakReference<>(this);
+            ResourceChangeListener fileChangeListener = file -> {
+                Material material = materialReference.get();
+                if (material == null)
+                    return false;
+
+                if (material.pipelineLayout == 0)
+                    return true;
 
                 Path path = file.toPath();
-                if (path.endsWith(fragmentShader) || path.endsWith(vertexShader)) {
-                    CreateGraphicsPipelineResult pipeline = createPipeline(application, viewport);
-                    long prevPipelineLayout = pipelineLayout;
-                    long prevGraphicsPipeline = graphicsPipeline;
+                if (path.endsWith(material.fragmentShader) || path.endsWith(material.vertexShader)) {
+                    CreateGraphicsPipelineResult pipeline = material.createPipeline(application, viewport);
+                    long prevPipelineLayout = material.pipelineLayout;
+                    long prevGraphicsPipeline = material.graphicsPipeline;
                     application.addTask(() -> {
-                        pipelineLayout = pipeline.pipelineLayout;
-                        graphicsPipeline = pipeline.graphicsPipeline;
+                        material.pipelineLayout = pipeline.pipelineLayout;
+                        material.graphicsPipeline = pipeline.graphicsPipeline;
 
                         vkDestroyPipeline(application.device, prevGraphicsPipeline, null);
                         vkDestroyPipelineLayout(application.device, prevPipelineLayout, null);
                     });
                 }
+                return true;
             };
             application.addResourceChangeListener(fileChangeListener);
         }

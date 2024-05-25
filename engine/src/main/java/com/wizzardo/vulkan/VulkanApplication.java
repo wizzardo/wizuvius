@@ -24,6 +24,7 @@ import com.wizzardo.vulkan.input.InputsManager;
 import com.wizzardo.vulkan.material.PushConstantInfo;
 import com.wizzardo.vulkan.material.SpecializationConstantInfo;
 import com.wizzardo.vulkan.misc.AtomicArrayList;
+import com.wizzardo.vulkan.misc.ResourceChangeListener;
 import com.wizzardo.vulkan.scene.Geometry;
 
 import com.wizzardo.vulkan.scene.Node;
@@ -1165,11 +1166,11 @@ public abstract class VulkanApplication extends Thread {
         vkCmdDrawIndexed(commandBuffer, mesh.getIndicesLength(), 1, 0, 0, 0);
     }
 
-    public boolean addResourceChangeListener(Consumer<File> listener) {
+    public boolean addResourceChangeListener(ResourceChangeListener listener) {
         return false;
     }
 
-    public boolean removeResourceChangeListener(Consumer<File> listener) {
+    public boolean removeResourceChangeListener(ResourceChangeListener listener) {
         return false;
     }
 

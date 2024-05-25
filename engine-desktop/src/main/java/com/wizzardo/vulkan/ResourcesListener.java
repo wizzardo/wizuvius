@@ -1,5 +1,6 @@
 package com.wizzardo.vulkan;
 
+import com.wizzardo.vulkan.misc.ResourceChangeListener;
 import io.methvin.watcher.DirectoryChangeEvent;
 import io.methvin.watcher.DirectoryWatcher;
 
@@ -14,7 +15,7 @@ import java.util.stream.Collectors;
 
 public class ResourcesListener extends Thread {
     protected final List<String> paths;
-    protected List<Consumer<File>> listeners = new CopyOnWriteArrayList<>();
+    protected List<ResourceChangeListener> listeners = new CopyOnWriteArrayList<>();
 
     public ResourcesListener(List<String> paths) {
         this.paths = paths;
@@ -54,14 +55,14 @@ public class ResourcesListener extends Thread {
         }
     }
 
-    public boolean addListener(Consumer<File> listener) {
+    public boolean addListener(ResourceChangeListener listener) {
         if (listener == null)
             return false;
 
         return listeners.add(listener);
     }
 
-    public boolean removeListener(Consumer<File> listener) {
+    public boolean removeListener(ResourceChangeListener listener) {
         if (listener == null)
             return false;
 
@@ -74,13 +75,18 @@ public class ResourcesListener extends Thread {
             modifications.put(f, f.lastModified());
 //            System.out.println("processEvent " + f);
 
-            for (int i = 0; i < listeners.size(); i++) {
-                Consumer<File> fileConsumer = listeners.get(i);
+            int i = 0;
+            while (i < listeners.size()) {
+                ResourceChangeListener fileConsumer = listeners.get(i);
                 try {
-                    fileConsumer.accept(f);
+                    if (!fileConsumer.onChange(f)) {
+                        listeners.remove(i);
+                        continue;
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+                i++;
             }
         }
     }
