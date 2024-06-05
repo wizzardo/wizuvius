@@ -34,6 +34,7 @@ public class BufferHolder {
         long buffer = this.buffer;
 
         return () -> {
+            ResourceCleaner.printDebugInCleanupTask(BufferHolder.class);
             if (mappedBuffer != null) {
                 vkUnmapMemory(device, bufferMemory);
             }

@@ -42,6 +42,7 @@ public class UniformBuffer {
         long memoryAddress = this.memoryAddress;
 
         return () -> {
+            ResourceCleaner.printDebugInCleanupTask(UniformBuffer.class);
             vkUnmapMemory(device, memoryAddress);
             vkDestroyBuffer(device, address, null);
             vkFreeMemory(device, memoryAddress, null);

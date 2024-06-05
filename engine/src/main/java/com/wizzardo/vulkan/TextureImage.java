@@ -95,6 +95,7 @@ public class TextureImage {
         long memoryUsage = this.memoryUsage;
 
         return () -> {
+            ResourceCleaner.printDebugInCleanupTask(TextureImage.class);
             if (textureImageView != 0)
                 vkDestroyImageView(device, textureImageView, null);
             if (textureImage != 0)

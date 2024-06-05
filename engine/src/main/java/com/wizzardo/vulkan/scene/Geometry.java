@@ -88,6 +88,15 @@ public class Geometry extends Spatial {
 
             descriptorSets = descriptorSetsBuilder.build(application.getDevice(), application.getSwapChainImages().size(), material.descriptorSetLayout, application.getDescriptorPool());
             descriptorSetsByMaterial.put(material, descriptorSets);
+            for (Long descriptorSet : descriptorSets) {
+                long ds = descriptorSet;
+                long descriptorPool = application.getDescriptorPool();
+                application.addCleanupTask(material, () -> {
+                    ResourceCleaner.printDebugInCleanupTask(Geometry.class);
+                    if(descriptorPool == application.getDescriptorPool())
+                        VK10.vkFreeDescriptorSets(application.getDevice(), application.getDescriptorPool(), ds);
+                });
+            }
         }
         return descriptorSets;
     }

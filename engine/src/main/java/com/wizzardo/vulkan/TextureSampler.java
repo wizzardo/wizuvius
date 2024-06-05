@@ -7,6 +7,9 @@ public class TextureSampler {
 
     public TextureSampler(VulkanApplication application, long sampler) {
         this.sampler = sampler;
-        application.addCleanupTask(this, () -> vkDestroySampler(application.getDevice(), sampler, null));
+        application.addCleanupTask(this, () -> {
+            ResourceCleaner.printDebugInCleanupTask(TextureSampler.class);
+            vkDestroySampler(application.getDevice(), sampler, null);
+        });
     }
 }

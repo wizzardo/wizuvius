@@ -164,7 +164,7 @@ public class Material {
 
     protected void createDescriptorSetLayoutCleanupTask(VulkanApplication application, long dsl) {
         application.addCleanupTask(this, () -> {
-            System.out.println("CleanupTask Material vkDestroyDescriptorSetLayout");
+            ResourceCleaner.printDebugInCleanupTask(Material.class);
             vkDestroyDescriptorSetLayout(application.device, dsl, null);
         });
     }
