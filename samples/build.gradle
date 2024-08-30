@@ -13,3 +13,23 @@ dependencies {
     implementation('org.slf4j:slf4j-api:1.7.36')
 
 }
+
+
+task runSample(type: JavaExec) {
+    description = 'Run a specific sample'
+    group = 'application'
+
+    System.getProperties().entrySet().stream()
+            .filter(entry -> entry.getKey().toString().startsWith("org.lwjgl."))
+            .forEach({
+                systemProperty String.valueOf(it.key), String.valueOf(it.value)
+            })
+
+    classpath = sourceSets.main.runtimeClasspath
+
+    def sample = project.hasProperty('sample') ? project.sample : ''
+    if(!sample)
+        mainClass = "com.example.ListSamples"
+    else
+        mainClass = "com.example.${sample}.SampleApp"
+}
