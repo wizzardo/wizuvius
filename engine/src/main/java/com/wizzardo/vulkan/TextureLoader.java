@@ -6,42 +6,85 @@ import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
+import com.wizzardo.tools.image.ImageTools;
 import com.wizzardo.tools.misc.Stopwatch;
-import com.wizzardo.vulkan.misc.NativeLibraryHelper;
-import org.khronos.ktx.*;
+import com.wizzardo.tools.misc.Unchecked;
+import com.wizzardo.vulkan.misc.RuntimeTools;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.util.ktx.ktxTexture;
+import org.lwjgl.util.ktx.ktxTexture1;
+import org.lwjgl.util.ktx.ktxTexture2;
 import org.lwjgl.vulkan.*;
+import org.lwjgl.util.ktx.KTX;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 public class TextureLoader {
 
-    private static volatile boolean ktxInitialized = false;
     protected static AtomicLong memoryUsed = new AtomicLong(0);
 
-    public static void initKtxSupport() {
-        if (ktxInitialized)
-            return;
+    public static void main(String[] args) {
+        Unchecked.run(() -> {
+            byte[] bytes = convertImageToKtx2(new File("sample/src/main/resources/textures/viking_room.png"), "/Users/wizzardo/Downloads/ktx/unpack/toktx");
+        });
+    }
 
-        synchronized (TextureLoader.class) {
-            if (ktxInitialized)
-                return;
+    public static byte[] convertImageToKtx2(File image, String toKtxExecutable) throws IOException, ExecutionException, InterruptedException {
+        RuntimeTools.ExecResult result = RuntimeTools.executeToStdout(new String[]{
+                toKtxExecutable,
+                "--encode",
+                "uastc",
+                "--t2",
+                "--uastc_quality",
+                "4",
+                "--zcmp",
+                "3",
+                "-",
+                image.getAbsolutePath(),
+        }, 30, null);
+        if (result.error.length > 0) {
+            String error = new String(result.error, StandardCharsets.UTF_8);
+            if (error.contains("It has an ICC profile.")) {
+                BufferedImage img = ImageTools.read(image);
 
-            try {
-                NativeLibraryHelper.load("libktx.4.1.0");
-                NativeLibraryHelper.load("libktx-jni.4.1.0");
-                ktxInitialized = true;
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+                File tempFile;
+                if (image.getName().toLowerCase().endsWith(".png")) {
+                    tempFile = File.createTempFile("img", ".png");
+                    ImageTools.savePNG(img, tempFile);
+                } else {
+                    tempFile = File.createTempFile("img", ".jpg");
+                    ImageTools.saveJPG(img, tempFile, 90);
+                }
+                try {
+                    result = RuntimeTools.executeToStdout(new String[]{
+                            toKtxExecutable,
+                            "--encode",
+                            "uastc",
+                            "--t2",
+                            "--uastc_quality",
+                            "4",
+                            "--zcmp",
+                            "3",
+                            "-",
+                            tempFile.getAbsolutePath(),
+                    }, 180, null);
+                } finally {
+                    tempFile.delete();
+                }
             }
         }
+
+        return result.result;
     }
 
     public static long getMemoryUsed() {
@@ -212,8 +255,7 @@ public class TextureLoader {
     static void generateMipmaps(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue graphicsQueue, long commandPool, long image, int imageFormat, int width, int height, int mipLevels) {
         try (MemoryStack stack = stackPush()) {
             // Check if image format supports linear blitting
-            VkFormatProperties formatProperties = VkFormatProperties.malloc(stack);
-            vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, formatProperties);
+            VkFormatProperties formatProperties = VulkanDevices.getDeviceFormatProperties(stack, physicalDevice, imageFormat);
 
             if ((formatProperties.optimalTilingFeatures() & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) == 0) {
                 throw new RuntimeException("Texture image format does not support linear blitting");
@@ -331,13 +373,20 @@ public class TextureLoader {
         }
     }
 
-    public static void copyBufferToImage(MemoryStack stack, VkCommandBuffer commandBuffer, long buffer, long image, KtxTexture texture) {
-        int width = texture.getBaseWidth();
-        int height = texture.getBaseHeight();
-        VkBufferImageCopy.Buffer regions = VkBufferImageCopy.calloc(texture.getNumLevels(), stack);
+    public static void copyBufferToImage(MemoryStack stack, VkCommandBuffer commandBuffer, long buffer, long image, ktxTexture texture) {
+        PointerBuffer pointerBuffer = stack.callocPointer(1);
+        int width = texture.baseWidth();
+        int height = texture.baseHeight();
+
+        VkBufferImageCopy.Buffer regions = VkBufferImageCopy.calloc(texture.numLevels(), stack);
         for (int i = 0; i < regions.capacity(); i++) {
             VkBufferImageCopy region = regions.get(i);
-            region.bufferOffset(texture.getImageOffset(i, 0, 0));
+            int result = KTX.ktxTexture_GetImageOffset(texture, i, 0, 0, pointerBuffer);
+            if (result != KTX.KTX_SUCCESS) {
+                throw new RuntimeException("ktxTexture_GetImageOffset failed: " + regions);
+            }
+//            region.bufferOffset(texture.getImageOffset(i, 0, 0));
+            region.bufferOffset(pointerBuffer.get(0));
             region.bufferRowLength(0);   // Tightly packed
             region.bufferImageHeight(0);  // Tightly packed
             region.imageSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
@@ -386,72 +435,84 @@ public class TextureLoader {
     }
 
     public static TextureImage createTextureImageKtx(VulkanApplication application, File assetFile) throws IOException {
-        initKtxSupport();
-
         String fileCanonicalPath = assetFile.getCanonicalPath();
-        KtxTexture1 texture = null;
-        try {
-            texture = KtxTexture1.createFromNamedFile(fileCanonicalPath, KtxTextureCreateFlagBits.LOAD_IMAGE_DATA_BIT);
-            return createTextureImage(application, texture, VkFormat.VK_FORMAT_R8G8B8A8_UNORM, null);
-        } finally {
-            cleanupAfterKtxRead(assetFile, fileCanonicalPath, texture);
+        try (MemoryStack stack = stackPush()) {
+            ktxTexture1 texture;
+//            texture = KtxTexture1.createFromNamedFile(fileCanonicalPath, KtxTextureCreateFlagBits.LOAD_IMAGE_DATA_BIT);
+            PointerBuffer pointerBuffer = stack.callocPointer(1);
+            int result = KTX.ktxTexture1_CreateFromNamedFile(fileCanonicalPath, KTX.KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, pointerBuffer);
+            if (result != KTX.KTX_SUCCESS) {
+                throw new RuntimeException("ktxTexture_CreateFromNamedFile failed: " + result);
+            }
+            texture = ktxTexture1.create(pointerBuffer.get(0));
+            ktxTexture t = ktxTexture.create(texture.address());
+            try {
+                return createTextureImage(application, t, VK10.VK_FORMAT_R8G8B8A8_UNORM, null);
+            } finally {
+                cleanupAfterKtxRead(assetFile, fileCanonicalPath, t);
+            }
         }
     }
 
     public static TextureImage createTextureImageKtx2(VulkanApplication application, File assetFile) throws IOException {
-        initKtxSupport();
-        VkDevice device = application.getDevice();
         VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
 
         String fileCanonicalPath = assetFile.getCanonicalPath();
-        KtxTexture2 texture = null;
-        try {
+        try (MemoryStack stack = stackPush()) {
             Stopwatch stopwatch = new Stopwatch("KtxTexture2.createFromNamedFile");
-            texture = KtxTexture2.createFromNamedFile(fileCanonicalPath, KtxTextureCreateFlagBits.LOAD_IMAGE_DATA_BIT);
+            PointerBuffer pointerBuffer = stack.callocPointer(1);
+            {
+                int result = KTX.ktxTexture2_CreateFromNamedFile(fileCanonicalPath, KTX.KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, pointerBuffer);
+                if (result != KTX.KTX_SUCCESS) {
+                    throw new RuntimeException("ktxTexture2_CreateFromNamedFile failed: " + result);
+                }
+            }
 
-            if (texture.getVkFormat() == VkFormat.VK_FORMAT_UNDEFINED) {
-                int transcodeFormat = KtxTranscodeFormat.NOSELECTION;
-                try (MemoryStack stack = stackPush()) {
-                    VkPhysicalDeviceFeatures deviceFeatures = VulkanDevices.getDeviceFeatures(stack, physicalDevice);
+            ktxTexture2 texture = ktxTexture2.create(pointerBuffer.get(0));
+            if (texture.vkFormat() == VK10.VK_FORMAT_UNDEFINED) {
+                int transcodeFormat = KTX.KTX_TTF_NOSELECTION;
+                VkPhysicalDeviceFeatures deviceFeatures = VulkanDevices.getDeviceFeatures(stack, physicalDevice);
 //                    System.out.println("textureCompressionBC: " + deviceFeatures.textureCompressionBC());
 //                    System.out.println("textureCompressionASTC_LDR: " + deviceFeatures.textureCompressionASTC_LDR());
 //                    System.out.println("textureCompressionETC2: " + deviceFeatures.textureCompressionETC2());
-                    if (deviceFeatures.textureCompressionBC()) {
-                        if (VulkanDevices.isFormatSupported(stack, physicalDevice, VkFormat.VK_FORMAT_BC7_SRGB_BLOCK)) {
-                            transcodeFormat = KtxTranscodeFormat.BC7_RGBA;
-                        } else if (VulkanDevices.isFormatSupported(stack, physicalDevice, VkFormat.VK_FORMAT_BC3_SRGB_BLOCK)) {
-                            transcodeFormat = KtxTranscodeFormat.BC3_RGBA;
-                        }
-                    } else if (deviceFeatures.textureCompressionASTC_LDR()) {
-                        if (VulkanDevices.isFormatSupported(stack, physicalDevice, VkFormat.VK_FORMAT_ASTC_4x4_SRGB_BLOCK)) {
-                            transcodeFormat = KtxTranscodeFormat.ASTC_4x4_RGBA;
-                        }
-                    } else if (deviceFeatures.textureCompressionETC2()) {
-                        if (VulkanDevices.isFormatSupported(stack, physicalDevice, VkFormat.VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK)) {
-                            transcodeFormat = KtxTranscodeFormat.ETC2_RGBA;
-                        }
-                    } else {
-                        transcodeFormat = KtxTranscodeFormat.RGBA32;
+                if (deviceFeatures.textureCompressionBC()) {
+                    if (VulkanDevices.isFormatSupported(stack, physicalDevice, VK10.VK_FORMAT_BC7_SRGB_BLOCK)) {
+                        transcodeFormat = KTX.KTX_TTF_BC7_RGBA;
+                    } else if (VulkanDevices.isFormatSupported(stack, physicalDevice, VK10.VK_FORMAT_BC3_SRGB_BLOCK)) {
+                        transcodeFormat = KTX.KTX_TTF_BC3_RGBA;
                     }
+                } else if (deviceFeatures.textureCompressionASTC_LDR()) {
+                    if (VulkanDevices.isFormatSupported(stack, physicalDevice, VK10.VK_FORMAT_ASTC_4x4_SRGB_BLOCK)) {
+                        transcodeFormat = KTX.KTX_TTF_ASTC_4x4_RGBA;
+                    }
+                } else if (deviceFeatures.textureCompressionETC2()) {
+                    if (VulkanDevices.isFormatSupported(stack, physicalDevice, VK10.VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK)) {
+                        transcodeFormat = KTX.KTX_TTF_ETC2_RGBA;
+                    }
+                } else {
+                    transcodeFormat = KTX.KTX_TTF_RGBA32;
                 }
-                if (transcodeFormat != KtxTranscodeFormat.NOSELECTION) {
-                    int result = texture.transcodeBasis(transcodeFormat, 0);
-                    if (result != KtxErrorCode.SUCCESS) {
+                if (transcodeFormat != KTX.KTX_TTF_NOSELECTION) {
+                    int result = KTX.ktxTexture2_TranscodeBasis(texture, transcodeFormat, 0);
+                    if (result != KTX.KTX_SUCCESS) {
                         throw new IllegalStateException("Couldn't transcode texture to format " + transcodeFormat + ": " + result);
                     }
                 } else
                     throw new IllegalStateException("Couldn't find transcode format");
             }
 
-            return createTextureImage(application, texture, texture.getVkFormat(), stopwatch);
-        } finally {
-            cleanupAfterKtxRead(assetFile, fileCanonicalPath, texture);
+            ktxTexture t = ktxTexture.create(texture.address());
+            try {
+                return createTextureImage(application, t, texture.vkFormat(), stopwatch);
+            } finally {
+                cleanupAfterKtxRead(assetFile, fileCanonicalPath, t);
+            }
         }
     }
 
     private static TextureImage createTextureImage(
             VulkanApplication application,
-            KtxTexture texture,
+            ktxTexture texture,
             int format,
             Stopwatch stopwatch
     ) {
@@ -459,7 +520,7 @@ public class TextureLoader {
         VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
         VkQueue transferQueue = application.getTransferQueue();
         long commandPool = application.getCommandPool();
-        ByteBuffer buffer = getAllData(texture);
+        ByteBuffer buffer = texture.pData();
         if (stopwatch != null)
             System.out.println(stopwatch);
 
@@ -467,9 +528,9 @@ public class TextureLoader {
             LongBuffer pStagingBuffer = stack.mallocLong(1);
             LongBuffer pStagingBufferMemory = stack.mallocLong(1);
             int imageSize = buffer.capacity();
-            int width = texture.getBaseWidth();
-            int height = texture.getBaseHeight();
-            int mipLevels = texture.getNumLevels();
+            int width = texture.baseWidth();
+            int height = texture.baseHeight();
+            int mipLevels = texture.numLevels();
 
             VulkanBuffers.createBuffer(
                     physicalDevice,
@@ -554,19 +615,10 @@ public class TextureLoader {
         }
     }
 
-    private static void cleanupAfterKtxRead(File assetFile, String fileCanonicalPath, KtxTexture texture) {
-        if (texture != null)
-            texture.destroy();
+    private static void cleanupAfterKtxRead(File assetFile, String fileCanonicalPath, ktxTexture texture) {
+        KTX.ktxTexture_Destroy(texture);
 
-        if (fileCanonicalPath.startsWith(System.setProperty("java.io.tmpdir", "---------")))
+        if (fileCanonicalPath.startsWith(System.getProperty("java.io.tmpdir", "---------")))
             assetFile.delete();
-    }
-
-    private static ByteBuffer getAllData(KtxTexture texture) {
-        byte[] bytes = texture.getData();
-        ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
-        buffer.put(bytes);
-        buffer.flip();
-        return buffer;
     }
 }
