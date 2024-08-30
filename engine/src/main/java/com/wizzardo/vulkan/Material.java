@@ -40,8 +40,7 @@ public class Material {
 
     public List<VulkanDescriptorSets.DescriptorSetLayoutBinding> bindings;
     public long descriptorSetLayout;
-    public long graphicsPipeline;
-    public long pipelineLayout;
+    public Pipeline pipeline;
 
     public VertexLayout getVertexLayout() {
         return vertexLayout;
@@ -125,15 +124,16 @@ public class Material {
     }
 
     public void cleanupSwapChainObjects(VkDevice device) {
-        try {
-            if (graphicsPipeline != 0)
-                vkDestroyPipeline(device, graphicsPipeline, null);
-            if (pipelineLayout != 0)
-                vkDestroyPipelineLayout(device, pipelineLayout, null);
-        } finally {
-            graphicsPipeline = 0;
-            pipelineLayout = 0;
-        }
+//        try {
+//            if (graphicsPipeline != 0)
+//                vkDestroyPipeline(device, graphicsPipeline, null);
+//            if (pipelineLayout != 0)
+//                vkDestroyPipelineLayout(device, pipelineLayout, null);
+//        } finally {
+//            graphicsPipeline = 0;
+//            pipelineLayout = 0;
+//        }
+        pipeline = null;
     }
 
     public void prepare(VulkanApplication application, Viewport viewport) {
@@ -152,12 +152,9 @@ public class Material {
             createDescriptorSetLayoutCleanupTask(application, descriptorSetLayout);
         }
 
-        if (pipelineLayout == 0L) {
+        if (pipeline == null) {
             addShaderChangeListener(application, viewport);
-            CreateGraphicsPipelineResult pipeline = createPipeline(application, viewport);
-
-            pipelineLayout = pipeline.pipelineLayout;
-            graphicsPipeline = pipeline.graphicsPipeline;
+            pipeline = createPipeline(application, viewport);
         }
 
     }
@@ -194,20 +191,19 @@ public class Material {
                 if (material == null)
                     return false;
 
-                if (material.pipelineLayout == 0)
+                if (material.pipeline == null)
                     return true;
 
                 Path path = file.toPath();
                 if (path.endsWith(material.fragmentShader) || path.endsWith(material.vertexShader)) {
-                    CreateGraphicsPipelineResult pipeline = material.createPipeline(application, viewport);
-                    long prevPipelineLayout = material.pipelineLayout;
-                    long prevGraphicsPipeline = material.graphicsPipeline;
+                    Pipeline pipeline = material.createPipeline(application, viewport);
+//                    long prevPipelineLayout = material.pipelineLayout;
+//                    long prevGraphicsPipeline = material.graphicsPipeline;
                     application.addTask(() -> {
-                        material.pipelineLayout = pipeline.pipelineLayout;
-                        material.graphicsPipeline = pipeline.graphicsPipeline;
+                        material.pipeline = pipeline;
 
-                        vkDestroyPipeline(application.device, prevGraphicsPipeline, null);
-                        vkDestroyPipelineLayout(application.device, prevPipelineLayout, null);
+//                        vkDestroyPipeline(application.device, prevGraphicsPipeline, null);
+//                        vkDestroyPipelineLayout(application.device, prevPipelineLayout, null);
                     });
                 }
                 return true;
@@ -216,7 +212,7 @@ public class Material {
         }
     }
 
-    protected CreateGraphicsPipelineResult createPipeline(VulkanApplication application, Viewport viewport) {
+    protected Pipeline createPipeline(VulkanApplication application, Viewport viewport) {
         ByteBuffer vertShaderSPIRV = Unchecked.call(() -> {
             byte[] bytes = IOTools.bytes(application.loadAsset(vertexShader));
             ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
@@ -240,7 +236,7 @@ public class Material {
         else
             descriptorSetLayouts = new long[]{descriptorSetLayout};
 
-        CreateGraphicsPipelineResult pipeline = VulkanApplication.createGraphicsPipeline(
+        return VulkanApplication.createGraphicsPipeline(
                 application.getDevice(),
                 vertShaderSPIRV,
                 fragShaderSPIRV,

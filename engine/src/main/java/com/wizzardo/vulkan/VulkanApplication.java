@@ -634,7 +634,7 @@ public abstract class VulkanApplication extends Thread {
         viewport.getGeometries().add(geometry);
     }
 
-    protected static CreateGraphicsPipelineResult createGraphicsPipeline(
+    protected static Pipeline createGraphicsPipeline(
             VkDevice device,
             ByteBuffer vertShaderSPIRV,
             ByteBuffer fragShaderSPIRV,
@@ -838,7 +838,15 @@ public abstract class VulkanApplication extends Thread {
 
 //            vertShaderSPIRV.free();
 //            fragShaderSPIRV.free();
-            return new CreateGraphicsPipelineResult(pipelineLayout, graphicsPipeline);
+
+
+            Pipeline pipeline = new Pipeline(graphicsPipeline, pipelineLayout);
+            resourceCleaner.addTask(pipeline, () -> {
+                ResourceCleaner.printDebugInCleanupTask(Pipeline.class);
+                vkDestroyPipeline(device, graphicsPipeline, null);
+                vkDestroyPipelineLayout(device, pipelineLayout, null);
+            });
+            return pipeline;
         }
     }
 
