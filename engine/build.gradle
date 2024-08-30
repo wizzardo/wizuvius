@@ -9,8 +9,7 @@ dependencies {
     api "org.lwjgl:lwjgl-vulkan:${lwjgl}"
     api "org.lwjgl:lwjgl-assimp:${lwjgl}"
     api "org.lwjgl:lwjgl-stb:${lwjgl}"
-
-    api files('../lib/libktx-4.1.0.jar')
+    api "org.lwjgl:lwjgl-ktx:${lwjgl}"
 
     testImplementation "org.assertj:assertj-core:3.18.1"
     testImplementation 'junit:junit:4.13.1'

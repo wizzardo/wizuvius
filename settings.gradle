@@ -1,3 +1,4 @@
+rootProject.name = 'wizuvius'
 //include ':app'
 include ':engine'
 include ':engine-desktop'
