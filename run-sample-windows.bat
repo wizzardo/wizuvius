@@ -1,0 +1,1 @@
+powershell.exe -noprofile -executionpolicy bypass -file .\run-sample-windows.ps1 "%1"
