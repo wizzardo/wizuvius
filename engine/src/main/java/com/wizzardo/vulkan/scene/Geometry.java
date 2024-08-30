@@ -1,6 +1,7 @@
 package com.wizzardo.vulkan.scene;
 
 import com.wizzardo.vulkan.*;
+import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkDevice;
 
 import java.util.IdentityHashMap;
