@@ -79,8 +79,9 @@ public abstract class VulkanApplication extends Thread {
                 Configuration.ASSIMP_LIBRARY_NAME.set("macos/x64/org/lwjgl/assimp/libassimp.dylib");
             }
         } else {
-            Configuration.VULKAN_LIBRARY_NAME.set("libvulkan.so");
-            Configuration.ASSIMP_LIBRARY_NAME.set("libassimp.so");
+//            Configuration.VULKAN_LIBRARY_NAME.set("libvulkan.so");
+//            Configuration.VULKAN_LIBRARY_NAME.set("/home/ubuntu/Downloads/Vulkan-Loader/build/loader/libvulkan.so");
+//            Configuration.ASSIMP_LIBRARY_NAME.set("libassimp.so");
         }
 
         if (ENABLE_VALIDATION_LAYERS) {
