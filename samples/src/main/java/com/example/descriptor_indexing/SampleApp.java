@@ -16,8 +16,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.khronos.ktx.VkFormat.VK_FORMAT_R8G8B8A8_UNORM;
-
 public class SampleApp extends AbstractSampleApp {
 
     public static void main(String[] args) {
@@ -72,7 +70,7 @@ public class SampleApp extends AbstractSampleApp {
             }
             byteBuffer.flip();
 
-            TextureImage textureImage = TextureLoader.createTextureImage(this, byteBuffer, width, height, byteBuffer.capacity(), VK_FORMAT_R8G8B8A8_UNORM, 1);
+            TextureImage textureImage = TextureLoader.createTextureImage(this, byteBuffer, width, height, byteBuffer.capacity(), VK10.VK_FORMAT_R8G8B8A8_UNORM, 1);
             bindlessTexturePool.add(textureImage, textureSampler);
             textures.add(textureImage);
         }
