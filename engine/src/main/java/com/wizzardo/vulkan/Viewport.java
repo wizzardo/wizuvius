@@ -1,9 +1,5 @@
 package com.wizzardo.vulkan;
 
-import static org.lwjgl.vulkan.VK10.vkDestroyFramebuffer;
-import static org.lwjgl.vulkan.VK10.vkDestroyRenderPass;
-import static org.lwjgl.vulkan.VK10.vkFreeCommandBuffers;
-
 import com.wizzardo.vulkan.scene.Geometry;
 import com.wizzardo.vulkan.scene.Node;
 
@@ -17,8 +13,12 @@ import org.lwjgl.vulkan.VkOffset2D;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.lwjgl.vulkan.VK10.*;
+
 public class Viewport {
 
+    protected int cullMode = VK_CULL_MODE_NONE;
+    protected int[] dynamicStates = Arrays.EMPTY_INT_ARRAY;
     protected Camera camera = new Camera();
     protected Node scene = new Node();
     protected long renderPass;
@@ -68,6 +68,23 @@ public class Viewport {
 
     public void setRenderPass(long renderPass) {
         this.renderPass = renderPass;
+    }
+
+    public void setFaceCullingMode(int cullMode) {
+        this.cullMode = cullMode;
+    }
+
+    public int getFaceCullingMode() {
+        return cullMode;
+    }
+
+    public void enableDynamicState(int dynamicState) {
+        if (Arrays.contains(dynamicStates, dynamicState))
+            return;
+        int[] next = new int[dynamicStates.length + 1];
+        System.arraycopy(dynamicStates, 0, next, 0, dynamicStates.length);
+        next[next.length - 1] = dynamicState;
+        dynamicStates = next;
     }
 
     public List<Long> getSwapChainFramebuffers() {

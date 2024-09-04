@@ -733,9 +733,8 @@ public abstract class VulkanApplication extends Thread {
                     throw new IllegalStateException("Unexpected value: " + rasterizationStateOptions.frontFace);
             }
 //            rasterizer.cullMode(VK_CULL_MODE_BACK_BIT);
-            rasterizer.cullMode(VK_CULL_MODE_NONE);
-            rasterizer.frontFace(VK_FRONT_FACE_COUNTER_CLOCKWISE);
-            rasterizer.depthBiasEnable(false);
+            rasterizer.cullMode(viewport.cullMode);
+            rasterizer.depthBiasEnable(Arrays.contains(viewport.dynamicStates, VK_DYNAMIC_STATE_DEPTH_BIAS));
 
             // ===> MULTISAMPLING <===
 
@@ -802,6 +801,10 @@ public abstract class VulkanApplication extends Thread {
 
             LongBuffer pPipelineLayout = stack.longs(VK_NULL_HANDLE);
 
+            VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = VkPipelineDynamicStateCreateInfo.calloc(stack);
+            dynamicStateCreateInfo.sType$Default();
+            dynamicStateCreateInfo.pDynamicStates(stack.ints(viewport.dynamicStates));
+
             if (vkCreatePipelineLayout(device, pipelineLayoutInfo, null, pPipelineLayout) != VK_SUCCESS) {
                 throw new RuntimeException("Failed to create pipeline layout");
             }
@@ -823,6 +826,7 @@ public abstract class VulkanApplication extends Thread {
             pipelineInfo.subpass(0);
             pipelineInfo.basePipelineHandle(VK_NULL_HANDLE);
             pipelineInfo.basePipelineIndex(-1);
+            pipelineInfo.pDynamicState(dynamicStateCreateInfo);
 
             LongBuffer pGraphicsPipeline = stack.mallocLong(1);
 
@@ -1045,6 +1049,7 @@ public abstract class VulkanApplication extends Thread {
         public final VkCommandBufferBeginInfo beginInfo;
         public final VkRenderPassBeginInfo renderPassInfo;
         public final VkRect2D renderArea;
+        public final VkRect2D.Buffer scissors;
         public final VkClearValue.Buffer[] clearValues;
         public final LongBuffer pLong_1;
         public final LongBuffer pLong_2;
@@ -1054,6 +1059,10 @@ public abstract class VulkanApplication extends Thread {
             beginInfo = VkCommandBufferBeginInfo.calloc(stack);
             renderPassInfo = VkRenderPassBeginInfo.calloc(stack);
             renderArea = VkRect2D.calloc(stack);
+            scissors = VkRect2D.calloc(1, stack);
+            offset2D = VkOffset2D.calloc(stack);
+            extent2D = VkExtent2D.calloc(stack);
+            viewport = VkViewport.calloc(1, stack);
 
             clearValues = new VkClearValue.Buffer[4];
             for (int i = 0; i < clearValues.length; i++) {
