@@ -107,22 +107,6 @@ public class Material {
         this.textureSampler = textureSampler;
     }
 
-    public long getGraphicsPipeline() {
-        return graphicsPipeline;
-    }
-
-    public void setGraphicsPipeline(long graphicsPipeline) {
-        this.graphicsPipeline = graphicsPipeline;
-    }
-
-    public long getPipelineLayout() {
-        return pipelineLayout;
-    }
-
-    public void setPipelineLayout(long pipelineLayout) {
-        this.pipelineLayout = pipelineLayout;
-    }
-
     public void cleanupSwapChainObjects(VkDevice device) {
 //        try {
 //            if (graphicsPipeline != 0)
@@ -247,7 +231,6 @@ public class Material {
                 createRasterizationStateOptions(),
                 descriptorSetLayouts
         );
-        return pipeline;
     }
 
     protected RasterizationStateOptions createRasterizationStateOptions() {

@@ -636,6 +636,7 @@ public abstract class VulkanApplication extends Thread {
 
     protected static Pipeline createGraphicsPipeline(
             VkDevice device,
+            ResourceCleaner resourceCleaner,
             ByteBuffer vertShaderSPIRV,
             ByteBuffer fragShaderSPIRV,
             Viewport viewport,
@@ -1138,7 +1139,7 @@ public abstract class VulkanApplication extends Thread {
     }
 
     protected void recordDraw(Mesh mesh, Material material, long descriptorSet, VkCommandBuffer commandBuffer, CommandBufferTempData tempData) {
-        long graphicsPipeline = material.graphicsPipeline;
+        long graphicsPipeline = material.pipeline.graphicsPipeline;
         if (graphicsPipeline != recordCommandPreviousGraphicsPipeline) {
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
             recordCommandPreviousGraphicsPipeline = graphicsPipeline;
@@ -1156,7 +1157,7 @@ public abstract class VulkanApplication extends Thread {
             vkCmdBindDescriptorSets(
                     commandBuffer,
                     VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    material.pipelineLayout,
+                    material.pipeline.pipelineLayout,
                     0,
                     tempData.pLongs2_1.put(0, descriptorSet).put(1, bindlessTexturePool.bindlessTexturesDescriptorSet),
                     null
@@ -1165,7 +1166,7 @@ public abstract class VulkanApplication extends Thread {
             vkCmdBindDescriptorSets(
                     commandBuffer,
                     VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    material.pipelineLayout,
+                    material.pipeline.pipelineLayout,
                     0,
                     tempData.pLong_1.put(0, descriptorSet),
                     null
