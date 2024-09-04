@@ -1054,6 +1054,9 @@ public abstract class VulkanApplication extends Thread {
         public final LongBuffer pLong_1;
         public final LongBuffer pLong_2;
         public final LongBuffer pLongs2_1;
+        public final VkOffset2D offset2D;
+        public final VkExtent2D extent2D;
+        public final VkViewport.Buffer viewport;
 
         public CommandBufferTempData(MemoryStack stack) {
             beginInfo = VkCommandBufferBeginInfo.calloc(stack);
