@@ -1161,7 +1161,7 @@ public abstract class VulkanApplication extends Thread {
             LongBuffer vertexBuffers = tempData.pLong_1.put(0, mesh.getVertexBuffer().buffer);
             LongBuffer offsets = tempData.pLong_2.put(0, 0l);
             vkCmdBindVertexBuffers(commandBuffer, 0, vertexBuffers, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, mesh.getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32); // todo: use VK_INDEX_TYPE_UINT16 if short is enough
+            vkCmdBindIndexBuffer(commandBuffer, mesh.getIndexBuffer().buffer, 0, mesh.getIndexBufferType()); // todo: use VK_INDEX_TYPE_UINT16 if short is enough
             recordCommandPreviousMesh = mesh;
         }
 
@@ -1185,7 +1185,7 @@ public abstract class VulkanApplication extends Thread {
             );
         }
 
-        vkCmdDrawIndexed(commandBuffer, mesh.getIndicesLength(), 1, 0, 0, 0);
+        mesh.draw(commandBuffer, material, tempData);
     }
 
     public boolean addResourceChangeListener(ResourceChangeListener listener) {

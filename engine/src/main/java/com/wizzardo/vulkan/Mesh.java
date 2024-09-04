@@ -1,16 +1,20 @@
 package com.wizzardo.vulkan;
 
 import org.joml.Vector3f;
+import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkDevice;
+
+import static org.lwjgl.vulkan.VK10.VK_INDEX_TYPE_UINT32;
+import static org.lwjgl.vulkan.VK10.vkCmdDrawIndexed;
 
 public class Mesh {
     protected Armature armature;
-    private Vertex[] vertices;
-    private int[] indices;
-
-    private BufferHolder vertexBuffer;
-    private BufferHolder indexBuffer;
+    protected Vertex[] vertices;
+    protected int[] indices;
+    protected BufferHolder vertexBuffer;
+    protected BufferHolder indexBuffer;
     protected BoundingBox boundingBox;
+    protected int indexBufferType = VK_INDEX_TYPE_UINT32;
 
     public Mesh(Vertex[] vertices, int[] indices) {
         this.vertices = vertices;
@@ -45,6 +49,10 @@ public class Mesh {
         return indexBuffer;
     }
 
+    public int getIndexBufferType() {
+        return indexBufferType;
+    }
+
     public void setIndexBuffer(BufferHolder indexBuffer) {
         this.indexBuffer = indexBuffer;
     }
@@ -64,6 +72,10 @@ public class Mesh {
             app.addCleanupTask(vertexBuffer, vertexBuffer.createCleanupTask(app.device));
             app.addCleanupTask(indexBuffer, indexBuffer.createCleanupTask(app.device));
         }
+    }
+
+    public void draw(VkCommandBuffer commandBuffer, Material material, VulkanApplication.CommandBufferTempData tempData) {
+        vkCmdDrawIndexed(commandBuffer, getIndicesLength(), 1, 0, 0, 0);
     }
 
     public BoundingBox getBoundingBox() {
