@@ -91,7 +91,10 @@ public class GlfwInputsManager implements InputsManager {
             });
 
             glfwSetKeyCallback(application.getWindow(), (window, key, scancode, action, mods) -> {
-//                            System.out.println(key + " " + scancode + " " + action + " " + mods);
+//                System.out.println(key + " " + scancode + " " + action + " " + mods);
+                if (key == -1)
+                    return;
+
                 boolean pressed = action == GLFW_PRESS;
                 boolean repeat = action == GLFW_REPEAT;
                 if (pressed || action == GLFW_RELEASE) {
