@@ -1,5 +1,6 @@
 package com.wizzardo.vulkan;
 
+import com.wizzardo.tools.interfaces.BiConsumer;
 import com.wizzardo.tools.io.IOTools;
 import com.wizzardo.tools.misc.Unchecked;
 import com.wizzardo.vulkan.material.PushConstantInfo;
@@ -8,7 +9,6 @@ import com.wizzardo.vulkan.material.Uniform;
 import com.wizzardo.vulkan.misc.ResourceChangeListener;
 import org.lwjgl.vulkan.VkDevice;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
 
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -249,7 +248,7 @@ public class Material {
                 BindingDescription location = locations.get(i);
                 size += location.size;
             }
-            sizeof = size * Float.BYTES;
+            sizeof = size;
         }
 
         public int offsetOf(int i) {
@@ -257,23 +256,78 @@ public class Material {
             for (int j = 0; j < i; j++) {
                 offset += locations.get(j).size;
             }
-            return offset * Float.BYTES;
+            return offset;
         }
 
-        public enum BindingDescription {
-            POSITION(3),
-            NORMAL(3),
-            TANGENT(3),
-            COLOR(3),
-            TEXTURE_COORDINATES(2),
-            BONE_INDEX(4),
-            BONE_WEIGHT(4),
-            ;
+        public static class BindingDescription {
+            public static final BindingDescription F2 = new BindingDescription(2 * Float.BYTES, VK_FORMAT_R32G32_SFLOAT);
+            public static final BindingDescription F3 = new BindingDescription(3 * Float.BYTES, VK_FORMAT_R32G32B32_SFLOAT);
+            public static final BindingDescription F4 = new BindingDescription(4 * Float.BYTES, VK_FORMAT_R32G32B32A32_SFLOAT);
+
+            public static final BindingDescription I1U = new BindingDescription(1 * Integer.BYTES, VK_FORMAT_R32_UINT);
+
+            public static final BindingDescription I1 = new BindingDescription(1 * Integer.BYTES, VK_FORMAT_R32_SINT);
+            public static final BindingDescription I2 = new BindingDescription(2 * Integer.BYTES, VK_FORMAT_R32G32_SINT);
+            public static final BindingDescription I3 = new BindingDescription(3 * Integer.BYTES, VK_FORMAT_R32G32B32_SINT);
+            public static final BindingDescription I4 = new BindingDescription(4 * Integer.BYTES, VK_FORMAT_R32G32B32A32_SINT);
+
+            public static final BindingDescription B4UNORM = new BindingDescription(4 * Byte.BYTES, VK_FORMAT_R8G8B8A8_UNORM);
+
+            public static final BindingDescription POSITION = new BindingDescription(F3, (vertex, buffer) -> {
+                buffer.putFloat(vertex.pos.x());
+                buffer.putFloat(vertex.pos.y());
+                buffer.putFloat(vertex.pos.z());
+            });
+            public static final BindingDescription NORMAL = new BindingDescription(F3, (vertex, buffer) -> {
+                buffer.putFloat(vertex.normal.x());
+                buffer.putFloat(vertex.normal.y());
+                buffer.putFloat(vertex.normal.z());
+            });
+            public static final BindingDescription TANGENT = new BindingDescription(F3, (vertex, buffer) -> {
+                buffer.putFloat(vertex.tangent.x());
+                buffer.putFloat(vertex.tangent.y());
+                buffer.putFloat(vertex.tangent.z());
+            });
+            public static final BindingDescription COLOR = new BindingDescription(F3, (vertex, buffer) -> {
+                buffer.putFloat(vertex.color.x());
+                buffer.putFloat(vertex.color.y());
+                buffer.putFloat(vertex.color.z());
+            });
+            public static final BindingDescription TEXTURE_COORDINATES = new BindingDescription(F2, (vertex, buffer) -> {
+                buffer.putFloat(vertex.texCoords.x());
+                buffer.putFloat(vertex.texCoords.y());
+            });
+            public static final BindingDescription BONE_INDEX = new BindingDescription(I4, (vertex, buffer) -> {
+                buffer.putInt(vertex.boneIndexes.x());
+                buffer.putInt(vertex.boneIndexes.y());
+                buffer.putInt(vertex.boneIndexes.z());
+                buffer.putInt(vertex.boneIndexes.w());
+            });
+            public static final BindingDescription BONE_WEIGHT = new BindingDescription(F4, (vertex, buffer) -> {
+                buffer.putFloat(vertex.boneWeights.x());
+                buffer.putFloat(vertex.boneWeights.y());
+                buffer.putFloat(vertex.boneWeights.z());
+                buffer.putFloat(vertex.boneWeights.w());
+            });
 
             public final int size;
+            public final int format;
+            public final BiConsumer<Vertex, ByteBuffer> bufferSetter;
 
-            BindingDescription(int size) {
+            public BindingDescription(int size, int format) {
+                this(size, format, null);
+            }
+
+            public BindingDescription(int size, int format, BiConsumer<Vertex, ByteBuffer> bufferSetter) {
                 this.size = size;
+                this.format = format;
+                this.bufferSetter = bufferSetter;
+            }
+
+            public BindingDescription(BindingDescription bindingDescription, BiConsumer<Vertex, ByteBuffer> bufferSetter) {
+                this.size = bindingDescription.size;
+                this.format = bindingDescription.format;
+                this.bufferSetter = bufferSetter;
             }
         }
     }
