@@ -222,6 +222,7 @@ public class Material {
 
         return VulkanApplication.createGraphicsPipeline(
                 application.getDevice(),
+                application.resourceCleaner,
                 vertShaderSPIRV,
                 fragShaderSPIRV,
                 viewport,
