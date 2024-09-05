@@ -846,11 +846,7 @@ public abstract class VulkanApplication extends Thread {
 
 
             Pipeline pipeline = new Pipeline(graphicsPipeline, pipelineLayout);
-            resourceCleaner.addTask(pipeline, () -> {
-                ResourceCleaner.printDebugInCleanupTask(Pipeline.class);
-                vkDestroyPipeline(device, graphicsPipeline, null);
-                vkDestroyPipelineLayout(device, pipelineLayout, null);
-            });
+            resourceCleaner.addTask(pipeline, pipeline.createCleanupTask(device));
             return pipeline;
         }
     }
