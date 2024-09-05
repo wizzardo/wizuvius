@@ -50,6 +50,15 @@ public class VulkanDescriptorSets {
         }
     }
 
+    public static class DescriptorSetLayoutBindingStorageBuffer extends DescriptorSetLayoutBinding {
+        final UniformBuffer uniformBuffer;
+
+        public DescriptorSetLayoutBindingStorageBuffer(int binding, int stageFlags, UniformBuffer uniformBuffer) {
+            super(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stageFlags);
+            this.uniformBuffer = uniformBuffer;
+        }
+    }
+
     public static class DescriptorSetLayoutBindingUBO extends DescriptorSetLayoutBinding {
         public DescriptorSetLayoutBindingUBO(int binding, int stageFlags) {
             super(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stageFlags);
@@ -161,7 +170,7 @@ public class VulkanDescriptorSets {
 
     static long createDescriptorPool(VkDevice device, int size) {
         try (MemoryStack stack = stackPush()) {
-            VkDescriptorPoolSize.Buffer poolSizes = VkDescriptorPoolSize.calloc(2, stack);
+            VkDescriptorPoolSize.Buffer poolSizes = VkDescriptorPoolSize.calloc(3, stack);
 
             VkDescriptorPoolSize uniformBufferPoolSize = poolSizes.get(0);
             uniformBufferPoolSize.type(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
@@ -171,10 +180,16 @@ public class VulkanDescriptorSets {
             textureSamplerPoolSize.type(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
             textureSamplerPoolSize.descriptorCount(size);
 
+            VkDescriptorPoolSize storageBuffersPoolSize = poolSizes.get(2);
+            storageBuffersPoolSize.type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            storageBuffersPoolSize.descriptorCount(size);
+
             VkDescriptorPoolCreateInfo poolInfo = VkDescriptorPoolCreateInfo.calloc(stack);
             poolInfo.sType(VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
             poolInfo.pPoolSizes(poolSizes);
             poolInfo.maxSets(size);
+            poolInfo.flags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+
 
             LongBuffer pDescriptorPool = stack.mallocLong(1);
 
@@ -298,6 +313,13 @@ public class VulkanDescriptorSets {
                                 imageInfo.imageView(imageWithSampler.textureImageView);
                                 imageInfo.sampler(imageWithSampler.textureSampler);
                                 writeDescriptorSet.pImageInfo(imageInfo);
+                            } else if (binding.type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER && binding instanceof DescriptorSetLayoutBindingStorageBuffer) {
+                                DescriptorSetLayoutBindingStorageBuffer storageBuffer = (DescriptorSetLayoutBindingStorageBuffer) binding;
+                                VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1, stack);
+                                bufferInfo.offset(0);
+                                bufferInfo.range(storageBuffer.uniformBuffer.size);
+                                bufferInfo.buffer(storageBuffer.uniformBuffer.address);
+                                writeDescriptorSet.pBufferInfo(bufferInfo);
                             }
                         }
 
