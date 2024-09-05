@@ -28,6 +28,10 @@ public interface InputsManager {
 
     void setCursorVisible(boolean visible);
 
+    float getWindowScaleY();
+
+    float getWindowScaleX();
+
     interface MouseMoveListener {
         void onMouseMove(double x, double y);
     }

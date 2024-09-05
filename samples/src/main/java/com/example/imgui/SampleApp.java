@@ -109,7 +109,6 @@ public class SampleApp extends AbstractSampleApp {
 
                 int commands = drawData.getCmdListCmdBufferSize(i);
                 for (int j = 0; j < commands; j++) {
-//                    drawData.getCmdListCmdBufferClipRect(i, j, clipRect);
                     drawData.getCmdListCmdBufferClipRect(clipRect, i, j);
                     tempData.scissors.offset(tempData.offset2D.set(Math.max(0, (int) clipRect.x), Math.max(0, (int) clipRect.y)));
                     tempData.scissors.extent(tempData.extent2D.set((int) (clipRect.z - clipRect.x), (int) (clipRect.w - clipRect.y)));
@@ -144,20 +143,12 @@ public class SampleApp extends AbstractSampleApp {
                 return;
 
             if (vertexBuffer == null || vertexCount < totalVtxCount) {
-//                if (vertexBuffer != null) {
-//                    BufferHolder buffer = vertexBuffer;
-//                    app.addAlteration(new DelayedTaskFrames(2, () -> buffer.cleanup(app.getDevice())));
-//                }
                 vertexBuffer = createBuffer(totalVtxCount * vertexLayout.sizeof, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexLayout.sizeof);
                 app.getResourceCleaner().addTask(vertexBuffer, vertexBuffer.createCleanupTask(app.getDevice()));
                 vertexCount = totalVtxCount;
             }
 
             if (indexBuffer == null || indexCount < totalIdxCount) {
-//                if (indexBuffer != null) {
-//                    BufferHolder buffer = indexBuffer;
-//                    app.addAlteration(new DelayedTaskFrames(2, () -> buffer.cleanup(app.getDevice())));
-//                }
                 indexBuffer = createBuffer(totalIdxCount * ImDrawData.sizeOfImDrawIdx(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, ImDrawData.sizeOfImDrawIdx());
                 app.getResourceCleaner().addTask(indexBuffer, indexBuffer.createCleanupTask(app.getDevice()));
                 indexCount = totalIdxCount;
@@ -224,23 +215,19 @@ public class SampleApp extends AbstractSampleApp {
                 System.getProperty("user.home") + "/Library/Fonts/" // macOS
         };
 
-        // Search for the font file
-        File fontFile = null;
         for (String dir : fontDirs) {
             File dirFile = new File(dir);
-            if (dirFile.exists() && dirFile.isDirectory()) {
-                File[] files = dirFile.listFiles();
-                if (files != null) {
-                    for (File file : files) {
-                        if (file.getName().toLowerCase().contains(targetFontName.toLowerCase()) && file.getName().endsWith(".ttf")) {
-                            fontFile = file;
-                            break;
-                        }
-                    }
+            if (!dirFile.isDirectory())
+                continue;
+
+            File[] files = dirFile.listFiles();
+            if (files == null)
+                continue;
+
+            for (File file : files) {
+                if (file.getName().toLowerCase().contains(targetFontName.toLowerCase()) && file.getName().endsWith(".ttf")) {
+                    return file;
                 }
-            }
-            if (fontFile != null) {
-                return fontFile;
             }
         }
         return null;
@@ -249,27 +236,7 @@ public class SampleApp extends AbstractSampleApp {
     @Override
     protected void initApp() {
         Properties properties = System.getProperties();
-        if (properties.getProperty("os.name", "").contains("Mac")) {
-            String arch = properties.getProperty("os.arch", "");
-            if (arch.equals("aarch64")) {
-                String name = "libimgui-javaarm64.dylib";
-                InputStream in = SampleApp.class.getResourceAsStream("/" + name);
-                if (in != null) {
-                    File fileOut;
-                    try {
-                        fileOut = File.createTempFile(name, "lib");
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                    FileTools.bytes(fileOut, in);
-                    fileOut.deleteOnExit();
-                    System.setProperty("imgui.library.path", fileOut.getParentFile().getAbsolutePath());
-                    System.setProperty("imgui.library.name", fileOut.getName());
-                } else {
-//                    throw new IllegalStateException("Could not find " + name);
-                }
-            }
-        }
+        boolean shouldScale = properties.getProperty("os.name", "").contains("Mac");
 
         // need to run it as async task to set glfw callback after GlfwInputsManager, that does it by same addTask()
         addTask(() -> {
@@ -278,19 +245,20 @@ public class SampleApp extends AbstractSampleApp {
             imGuiImplGlfw = new ImGuiImplGlfw();
             imGuiImplGlfw.init(window, true);
 
-//            ImGui.getStyle().scaleAllSizes(2);
-
-
             ImGuiIO io = ImGui.getIO();
             io.setIniFilename(null);
 
             io.setConfigViewportsNoTaskBarIcon(true);
             ImFont imFont = io.getFonts().addFontFromFileTTF(
                     findFont("Arial").getAbsolutePath(),
-                    20 * 2
+                    20 * (shouldScale ? inputsManager.getWindowScaleX() : 1)
             );
             io.setFontDefault(imFont);
             io.getFonts().build();
+
+            if (shouldScale) {
+                ImGui.getIO().setDisplaySize(width * inputsManager.getWindowScaleX(), height * inputsManager.getWindowScaleY());
+            }
 
 
             guiViewport.enableDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
@@ -362,18 +330,8 @@ public class SampleApp extends AbstractSampleApp {
     private void updateImguiFrame() {
         imGuiImplGlfw.newFrame();
 
-        //fix for high dpi
-//        ImGui.getIO().setMousePos(ImGui.getIO().getMousePosX() * 2, ImGui.getIO().getMousePosY() * 2);
-        ImGui.getIO().setDisplaySize(width * 2, height * 2);
         ImGui.newFrame();
-//        ImGui.getIO().setDisplaySize(width * 2, height * 2);
-//        ImGui.getIO().setDisplayFramebufferScale(2, 2);
-//        System.out.println(ImGui.getIO().getMousePos());
-        //Create new imgui vulkan frame
-//        ImGuiVk.newFrame();
-
         processImgui();
-
         ImGui.render();
     }
 

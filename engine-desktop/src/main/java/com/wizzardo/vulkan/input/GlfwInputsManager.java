@@ -206,6 +206,14 @@ public class GlfwInputsManager implements InputsManager {
             });
     }
 
+    public float getWindowScaleY() {
+        return this.windowScaleY;
+    }
+
+    public float getWindowScaleX() {
+        return this.windowScaleX;
+    }
+
     @Override
     public void addMouseMoveListener(MouseMoveListener listener) {
         mouseMoveListeners.add(listener);
