@@ -56,17 +56,7 @@ public class Vertex {
             VkVertexInputAttributeDescription posDescription = attributeDescriptions.get(i);
             posDescription.binding(0);
             posDescription.location(i);
-            if (bindingDescription.size == 3)
-                posDescription.format(VK_FORMAT_R32G32B32_SFLOAT);
-            else if (bindingDescription.size == 2)
-                posDescription.format(VK_FORMAT_R32G32_SFLOAT);
-            else if (bindingDescription == Material.VertexLayout.BindingDescription.BONE_INDEX)
-                posDescription.format(VK_FORMAT_R32G32B32A32_SINT);
-            else if (bindingDescription == Material.VertexLayout.BindingDescription.BONE_WEIGHT)
-                posDescription.format(VK_FORMAT_R32G32B32A32_SFLOAT);
-            else
-                throw new IllegalArgumentException("Unknown size: " + bindingDescription.size);
-
+            posDescription.format(bindingDescription.format);
             posDescription.offset(vertexLayout.offsetOf(i));
         }
         return attributeDescriptions.rewind();
