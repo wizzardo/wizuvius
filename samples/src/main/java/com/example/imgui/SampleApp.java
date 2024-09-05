@@ -61,7 +61,7 @@ public class SampleApp extends AbstractSampleApp {
             super(new Vertex[0], new int[0]);
             this.app = app;
 
-            if (ImDrawData.SIZEOF_IM_DRAW_IDX == 2)
+            if (ImDrawData.sizeOfImDrawIdx() == 2)
                 indexBufferType = VK_INDEX_TYPE_UINT16;
 
             constants = ByteBuffer.allocateDirect(Float.BYTES * 4).order(ByteOrder.nativeOrder());
@@ -109,7 +109,8 @@ public class SampleApp extends AbstractSampleApp {
 
                 int commands = drawData.getCmdListCmdBufferSize(i);
                 for (int j = 0; j < commands; j++) {
-                    drawData.getCmdListCmdBufferClipRect(i, j, clipRect);
+//                    drawData.getCmdListCmdBufferClipRect(i, j, clipRect);
+                    drawData.getCmdListCmdBufferClipRect(clipRect, i, j);
                     tempData.scissors.offset(tempData.offset2D.set(Math.max(0, (int) clipRect.x), Math.max(0, (int) clipRect.y)));
                     tempData.scissors.extent(tempData.extent2D.set((int) (clipRect.z - clipRect.x), (int) (clipRect.w - clipRect.y)));
                     vkCmdSetScissor(commandBuffer, 0, tempData.scissors);
@@ -157,7 +158,7 @@ public class SampleApp extends AbstractSampleApp {
 //                    BufferHolder buffer = indexBuffer;
 //                    app.addAlteration(new DelayedTaskFrames(2, () -> buffer.cleanup(app.getDevice())));
 //                }
-                indexBuffer = createBuffer(totalIdxCount * ImDrawData.SIZEOF_IM_DRAW_IDX, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, ImDrawData.SIZEOF_IM_DRAW_IDX);
+                indexBuffer = createBuffer(totalIdxCount * ImDrawData.sizeOfImDrawIdx(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, ImDrawData.sizeOfImDrawIdx());
                 app.getResourceCleaner().addTask(indexBuffer, indexBuffer.createCleanupTask(app.getDevice()));
                 indexCount = totalIdxCount;
             }
@@ -166,7 +167,7 @@ public class SampleApp extends AbstractSampleApp {
             if (cmdListsCount == 1) {
                 try {
                     nGetCmdListVtxBufferData.invoke(drawData, 0, vertexBuffer.getMappedBuffer(), vertexCount * vertexLayout.sizeof);
-                    nGetCmdListIdxBufferData.invoke(drawData, 0, indexBuffer.getMappedBuffer(), indexCount * ImDrawData.SIZEOF_IM_DRAW_IDX);
+                    nGetCmdListIdxBufferData.invoke(drawData, 0, indexBuffer.getMappedBuffer(), indexCount * ImDrawData.sizeOfImDrawIdx());
                 } catch (Throwable e) {
                     throw new RuntimeException(e);
                 }
@@ -182,7 +183,7 @@ public class SampleApp extends AbstractSampleApp {
                     ByteBuffer idxBufferData = drawData.getCmdListIdxBufferData(i);
                     indexBuffer.getMappedBuffer().position(indexBufferOffset);
                     indexBuffer.getMappedBuffer().put(idxBufferData);
-                    indexBufferOffset += drawData.getCmdListIdxBufferSize(i) * ImDrawData.SIZEOF_IM_DRAW_IDX;
+                    indexBufferOffset += drawData.getCmdListIdxBufferSize(i) * ImDrawData.sizeOfImDrawIdx();
                 }
             }
         }
@@ -253,19 +254,20 @@ public class SampleApp extends AbstractSampleApp {
             if (arch.equals("aarch64")) {
                 String name = "libimgui-javaarm64.dylib";
                 InputStream in = SampleApp.class.getResourceAsStream("/" + name);
-                if (in == null) {
-                    throw new IllegalStateException("Could not find " + name);
+                if (in != null) {
+                    File fileOut;
+                    try {
+                        fileOut = File.createTempFile(name, "lib");
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    FileTools.bytes(fileOut, in);
+                    fileOut.deleteOnExit();
+                    System.setProperty("imgui.library.path", fileOut.getParentFile().getAbsolutePath());
+                    System.setProperty("imgui.library.name", fileOut.getName());
+                } else {
+//                    throw new IllegalStateException("Could not find " + name);
                 }
-                File fileOut;
-                try {
-                    fileOut = File.createTempFile(name, "lib");
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                FileTools.bytes(fileOut, in);
-                fileOut.deleteOnExit();
-                System.setProperty("imgui.library.path", fileOut.getParentFile().getAbsolutePath());
-                System.setProperty("imgui.library.name", fileOut.getName());
             }
         }
 
@@ -276,7 +278,7 @@ public class SampleApp extends AbstractSampleApp {
             imGuiImplGlfw = new ImGuiImplGlfw();
             imGuiImplGlfw.init(window, true);
 
-            ImGui.getStyle().scaleAllSizes(2);
+//            ImGui.getStyle().scaleAllSizes(2);
 
 
             ImGuiIO io = ImGui.getIO();
@@ -361,7 +363,7 @@ public class SampleApp extends AbstractSampleApp {
         imGuiImplGlfw.newFrame();
 
         //fix for high dpi
-        ImGui.getIO().setMousePos(ImGui.getIO().getMousePosX() * 2, ImGui.getIO().getMousePosY() * 2);
+//        ImGui.getIO().setMousePos(ImGui.getIO().getMousePosX() * 2, ImGui.getIO().getMousePosY() * 2);
         ImGui.getIO().setDisplaySize(width * 2, height * 2);
         ImGui.newFrame();
 //        ImGui.getIO().setDisplaySize(width * 2, height * 2);
