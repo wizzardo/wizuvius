@@ -9,6 +9,7 @@ import org.lwjgl.vulkan.*;
 
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 public class VulkanQueues {
@@ -23,18 +24,19 @@ public class VulkanQueues {
             vkGetPhysicalDeviceQueueFamilyProperties(device, queueFamilyCount, queueFamilies);
 
 //            IntBuffer presentSupport = stack.ints(VK_FALSE);
+            HashSet<Integer> usedQueues = new HashSet<>();
 
             for (int i = 0; i < queueFamilies.capacity() && !indices.isComplete(); i++) {
                 VkQueueFamilyProperties vkQueueFamilyProperties = queueFamilies.get(i);
                 int flags = vkQueueFamilyProperties.queueFlags();
-                if ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) {
+                if ((flags & VK_QUEUE_GRAPHICS_BIT) != 0 && indices.getGraphicsFamily() == null && usedQueues.add(i)) {
                     indices.setGraphicsFamily(i);
                     indices.setGraphicsQueueTimestampValidBits(vkQueueFamilyProperties.timestampValidBits());
                 }
-                if ((flags & VK_QUEUE_TRANSFER_BIT) != 0) {
+                if ((flags & VK_QUEUE_TRANSFER_BIT) != 0 && indices.getTransferFamily() == null && usedQueues.add(i)) {
                     indices.setTransferFamily(i);
                 }
-                if ((flags & VK_QUEUE_COMPUTE_BIT) != 0) {
+                if ((flags & VK_QUEUE_COMPUTE_BIT) != 0 && indices.getComputeFamily() == null && usedQueues.add(i)) {
                     indices.setComputeFamily(i);
                 }
 

@@ -67,8 +67,8 @@ public class Mesh {
 
     public void prepare(VulkanApplication app, Material.VertexLayout vertexLayout) {
         if (vertexBuffer == null || indexBuffer == null) {
-            vertexBuffer = Utils.createVertexBuffer(app.physicalDevice, app.device, app.transferQueue, app.commandPool, getVertices(), vertexLayout);
-            indexBuffer = Utils.createIndexBuffer(app.physicalDevice, app.device, app.transferQueue, app.commandPool, getIndices());
+            vertexBuffer = Utils.createVertexBuffer(app.physicalDevice, app.device, app.transferQueue, app.transferCommandPool, getVertices(), vertexLayout);
+            indexBuffer = Utils.createIndexBuffer(app.physicalDevice, app.device, app.transferQueue, app.transferCommandPool, getIndices());
             app.addCleanupTask(vertexBuffer, vertexBuffer.createCleanupTask(app.device));
             app.addCleanupTask(indexBuffer, indexBuffer.createCleanupTask(app.device));
         }

@@ -121,6 +121,7 @@ public abstract class VulkanApplication extends Thread {
 
     protected long descriptorPool;
     protected long commandPool;
+    protected long transferCommandPool;
     protected DepthResources depthResources;
 
     protected int bindlessTexturesCount = 4096;
@@ -306,6 +307,10 @@ public abstract class VulkanApplication extends Thread {
         return transferQueue;
     }
 
+    public long getTransferCommandPool() {
+        return transferCommandPool;
+    }
+
     public Viewport getMainViewport() {
         return mainViewport;
     }
@@ -365,7 +370,8 @@ public abstract class VulkanApplication extends Thread {
             }
         }
 
-        transferQueue = VulkanQueues.createQueue(device, indices.getTransferFamily());
+        transferQueue = VulkanQueues.createQueue(device, indices.getTransferFamily() == null ? indices.getGraphicsFamily() : indices.getTransferFamily());
+        transferCommandPool = VulkanCommands.createCommandPool(device, indices.getTransferFamily() == null ? indices.getGraphicsFamily() : indices.getTransferFamily());
 //        System.out.println(indices);
 //        presentQueue = createPresentQueue(device, indices.presentFamily);
         presentQueue = VulkanQueues.createQueue(device, indices.getGraphicsFamily());

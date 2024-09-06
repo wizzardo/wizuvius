@@ -131,7 +131,7 @@ public class TextureLoader {
         VkDevice device = application.getDevice();
         VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
         VkQueue queue = application.getTransferQueue();
-        long commandPool = application.getCommandPool();
+        long commandPool = application.getTransferCommandPool();
         try (MemoryStack stack = stackPush()) {
             LongBuffer pStagingBuffer = stack.mallocLong(1);
             LongBuffer pStagingBufferMemory = stack.mallocLong(1);
@@ -214,7 +214,7 @@ public class TextureLoader {
         VkDevice device = application.getDevice();
         VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
         VkQueue queue = application.getTransferQueue();
-        long commandPool = application.getCommandPool();
+        long commandPool = application.getTransferCommandPool();
         try (MemoryStack stack = stackPush()) {
             LongBuffer pTextureImage = stack.mallocLong(1);
             LongBuffer pTextureImageMemory = stack.mallocLong(1);
@@ -519,7 +519,7 @@ public class TextureLoader {
         VkDevice device = application.getDevice();
         VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
         VkQueue transferQueue = application.getTransferQueue();
-        long commandPool = application.getCommandPool();
+        long commandPool = application.getTransferCommandPool();
         ByteBuffer buffer = texture.pData();
         if (stopwatch != null)
             System.out.println(stopwatch);

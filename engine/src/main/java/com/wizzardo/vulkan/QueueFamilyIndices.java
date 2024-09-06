@@ -9,7 +9,7 @@ public class QueueFamilyIndices {
     private int graphicsQueueTimestampValidBits;
 
     public boolean isComplete() {
-        return graphicsFamily != null;
+        return graphicsFamily != null && transferFamily != null && computeFamily != null;
     }
 
     public int[] unique() {
@@ -20,22 +20,16 @@ public class QueueFamilyIndices {
         return new int[]{graphicsFamily};
     }
 
-    public int getGraphicsFamily() {
+    public Integer getGraphicsFamily() {
         return graphicsFamily;
     }
 
-    public int getTransferFamily() {
-        if (transferFamily != null)
-            return transferFamily;
-
-        return graphicsFamily;
+    public Integer getTransferFamily() {
+        return transferFamily;
     }
 
-    public int getComputeFamily() {
-        if (computeFamily != null)
-            return computeFamily;
-
-        return graphicsFamily;
+    public Integer getComputeFamily() {
+        return computeFamily;
     }
 
     public void setGraphicsFamily(int i) {
