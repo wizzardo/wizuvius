@@ -54,8 +54,6 @@ public class JavaFxToTextureBridge {
     protected VulkanApplication application;
     protected static volatile int imageFormat;
     protected int textureCounter = 0;
-    protected static VkQueue transferQueue;
-    protected static long commandPool;
 
     public static void init() {
         CountDownLatch javaFxInit = new CountDownLatch(1);
@@ -82,7 +80,6 @@ public class JavaFxToTextureBridge {
     }
 
     public static void cleanup(VulkanApplication application) {
-        vkDestroyCommandPool(application.getDevice(), commandPool, null);
         Platform.exit();
     }
 
@@ -154,7 +151,6 @@ public class JavaFxToTextureBridge {
 
     protected JavaFxToTextureBridge(VulkanApplication application) {
         this.application = application;
-        initQueue(application);
     }
 
     public JavaFxToTextureBridge(VulkanApplication application, int width, int height) {
@@ -189,19 +185,7 @@ public class JavaFxToTextureBridge {
         this.tempData = ByteBuffer.allocateDirect(imageSize).order(ByteOrder.nativeOrder());
         this.tempDataIntView = tempData.asIntBuffer();
         this.stagingBuffer = createStagingBuffer(application, imageSize);
-    }
-
-    private static void initQueue(VulkanApplication application) {
-        if (transferQueue != null)
-            return;
-
-        List<VulkanQueues.QueueFamilyProperties> list = VulkanQueues.getQueueFamilies(application.getPhysicalDevice());
-        Optional<VulkanQueues.QueueFamilyProperties> index = list.stream().filter(it -> (it.flags & VK_QUEUE_TRANSFER_BIT) != 0).skip(1).findFirst();
-        if (index.isEmpty())
-            throw new IllegalStateException();
-
-        transferQueue = VulkanQueues.createQueue(application.getDevice(), index.get().index);
-        commandPool = VulkanCommands.createCommandPool(application.getDevice(), index.get().index);
+        application.addCleanupTask(this.stagingBuffer, stagingBuffer.createCleanupTask(application.getDevice()));
     }
 
     public TextureHolder getCurrentImage() {
@@ -424,8 +408,8 @@ public class JavaFxToTextureBridge {
     private void copyToTexture(TextureHolder dst) {
         copyBufferToImage(
                 application.getDevice(),
-                transferQueue,
-                commandPool,
+                application.getTransferQueue(),
+                application.getTransferCommandPool(),
                 stagingBuffer.buffer,
                 dst.textureImage.getTextureImage(),
                 textureWidth,
