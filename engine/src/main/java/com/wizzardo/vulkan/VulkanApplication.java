@@ -1047,7 +1047,7 @@ public abstract class VulkanApplication extends Thread {
     protected void simpleUpdate(double tpf) {
     }
 
-    protected static class CommandBufferTempData {
+    public static class CommandBufferTempData {
         public final VkCommandBufferBeginInfo beginInfo;
         public final VkRenderPassBeginInfo renderPassInfo;
         public final VkRect2D renderArea;
