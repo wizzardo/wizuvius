@@ -619,6 +619,7 @@ public abstract class VulkanApplication extends Thread {
 
         vkDestroyQueryPool(device, timestampQueryPool, null);
         vkDestroyCommandPool(device, commandPool, null);
+        vkDestroyCommandPool(device, transferCommandPool, null);
         vkDestroyDevice(device, null);
 
         if (ENABLE_VALIDATION_LAYERS) {
