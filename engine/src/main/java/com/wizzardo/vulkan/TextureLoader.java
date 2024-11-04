@@ -179,20 +179,21 @@ public class TextureLoader {
             copyBufferToImage(device, queue, commandPool, pStagingBuffer.get(0), textureImage, width, height);
 
             // Transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
-            if (mipLevels > 1)
-                generateMipmaps(physicalDevice, device, queue, commandPool, textureImage, format, width, height, mipLevels);
-
-
-            VulkanImages.transitionImageLayout(
-                    device,
-                    queue,
-                    commandPool,
-                    textureImage,
-                    format,
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    mipLevels
-            );
+            if (mipLevels > 1) {
+                int mipsSize = generateMipmaps(physicalDevice, device, queue, commandPool, textureImage, format, width, height, mipLevels);
+                imageSize += mipsSize;
+            } else {
+                VulkanImages.transitionImageLayout(
+                        device,
+                        queue,
+                        commandPool,
+                        textureImage,
+                        format,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        mipLevels
+                );
+            }
 
             vkDestroyBuffer(device, pStagingBuffer.get(0), null);
             vkFreeMemory(device, pStagingBufferMemory.get(0), null);
@@ -243,16 +244,17 @@ public class TextureLoader {
             );
 
             // Transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
-            generateMipmaps(physicalDevice, device, queue, commandPool, textureImage, format, width, height, mipLevels);
+            int mipsMemorySize = generateMipmaps(physicalDevice, device, queue, commandPool, textureImage, format, width, height, mipLevels);
 
             long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
 
+            memorySize += mipsMemorySize;
             memoryUsed.addAndGet(memorySize);
             return new TextureImage(application, mipLevels, textureImage, textureImageMemory, textureImageView, memorySize);
         }
     }
 
-    static void generateMipmaps(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue graphicsQueue, long commandPool, long image, int imageFormat, int width, int height, int mipLevels) {
+    static int generateMipmaps(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue graphicsQueue, long commandPool, long image, int imageFormat, int width, int height, int mipLevels) {
         try (MemoryStack stack = stackPush()) {
             // Check if image format supports linear blitting
             VkFormatProperties formatProperties = VulkanDevices.getDeviceFormatProperties(stack, physicalDevice, imageFormat);
@@ -261,6 +263,7 @@ public class TextureLoader {
                 throw new RuntimeException("Texture image format does not support linear blitting");
             }
 
+            int totalSize = 0;
             VkCommandBuffer commandBuffer = VulkanCommands.beginSingleTimeCommands(device, commandPool);
 
             VkImageMemoryBarrier.Buffer barrier = VkImageMemoryBarrier.calloc(1, stack);
@@ -283,6 +286,7 @@ public class TextureLoader {
                 barrier.newLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
                 barrier.srcAccessMask(VK_ACCESS_TRANSFER_WRITE_BIT);
                 barrier.dstAccessMask(VK_ACCESS_TRANSFER_READ_BIT);
+                totalSize += mipWidth * mipHeight * 4 / 4;
 
                 vkCmdPipelineBarrier(commandBuffer,
                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
@@ -343,6 +347,7 @@ public class TextureLoader {
                     barrier);
 
             VulkanCommands.endSingleTimeCommands(device, graphicsQueue, commandPool, commandBuffer);
+            return totalSize;
         }
     }
 
@@ -447,7 +452,7 @@ public class TextureLoader {
             texture = ktxTexture1.create(pointerBuffer.get(0));
             ktxTexture t = ktxTexture.create(texture.address());
             try {
-                return createTextureImage(application, t, VK10.VK_FORMAT_R8G8B8A8_UNORM, null);
+                return createTextureImage(application, t, VK10.VK_FORMAT_R8G8B8A8_UNORM);
             } finally {
                 cleanupAfterKtxRead(assetFile, fileCanonicalPath, t);
             }
@@ -503,7 +508,7 @@ public class TextureLoader {
 
             ktxTexture t = ktxTexture.create(texture.address());
             try {
-                return createTextureImage(application, t, texture.vkFormat(), stopwatch);
+                return createTextureImage(application, t, texture.vkFormat());
             } finally {
                 cleanupAfterKtxRead(assetFile, fileCanonicalPath, t);
             }
@@ -513,16 +518,13 @@ public class TextureLoader {
     private static TextureImage createTextureImage(
             VulkanApplication application,
             ktxTexture texture,
-            int format,
-            Stopwatch stopwatch
+            int format
     ) {
         VkDevice device = application.getDevice();
         VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
         VkQueue transferQueue = application.getTransferQueue();
         long commandPool = application.getTransferCommandPool();
         ByteBuffer buffer = texture.pData();
-        if (stopwatch != null)
-            System.out.println(stopwatch);
 
         try (MemoryStack stack = stackPush()) {
             LongBuffer pStagingBuffer = stack.mallocLong(1);
