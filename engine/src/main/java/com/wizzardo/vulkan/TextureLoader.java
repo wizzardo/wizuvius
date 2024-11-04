@@ -130,8 +130,8 @@ public class TextureLoader {
     ) {
         VkDevice device = application.getDevice();
         VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
-        VkQueue queue = application.getTransferQueue();
-        long commandPool = application.getTransferCommandPool();
+        VkQueue queue = application.getGraphicsQueue();
+        long commandPool = application.getCommandPool();
         try (MemoryStack stack = stackPush()) {
             LongBuffer pStagingBuffer = stack.mallocLong(1);
             LongBuffer pStagingBufferMemory = stack.mallocLong(1);
@@ -214,8 +214,8 @@ public class TextureLoader {
     ) {
         VkDevice device = application.getDevice();
         VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
-        VkQueue queue = application.getTransferQueue();
-        long commandPool = application.getTransferCommandPool();
+        VkQueue queue = application.getGraphicsQueue();
+        long commandPool = application.getCommandPool();
         try (MemoryStack stack = stackPush()) {
             LongBuffer pTextureImage = stack.mallocLong(1);
             LongBuffer pTextureImageMemory = stack.mallocLong(1);
@@ -522,8 +522,8 @@ public class TextureLoader {
     ) {
         VkDevice device = application.getDevice();
         VkPhysicalDevice physicalDevice = application.getPhysicalDevice();
-        VkQueue transferQueue = application.getTransferQueue();
-        long commandPool = application.getTransferCommandPool();
+        VkQueue queue = application.getGraphicsQueue();
+        long commandPool = application.getCommandPool();
         ByteBuffer buffer = texture.pData();
 
         try (MemoryStack stack = stackPush()) {
@@ -605,7 +605,7 @@ public class TextureLoader {
             );
 
 
-            VulkanCommands.endSingleTimeCommands(device, transferQueue, commandPool, commandBuffer);
+            VulkanCommands.endSingleTimeCommands(device, queue, commandPool, commandBuffer);
 
             vkDestroyBuffer(device, pStagingBuffer.get(0), null);
             vkFreeMemory(device, pStagingBufferMemory.get(0), null);
