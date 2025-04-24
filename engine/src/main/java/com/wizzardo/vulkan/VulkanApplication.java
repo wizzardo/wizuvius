@@ -651,6 +651,7 @@ public abstract class VulkanApplication extends Thread {
             List<SpecializationConstantInfo> constants,
             List<PushConstantInfo> pushconstants,
             RasterizationStateOptions rasterizationStateOptions,
+            DepthStencilStateOptions depthStencilStateOptions,
             long... descriptorSetLayouts
     ) {
         try (MemoryStack stack = stackPush()) {
@@ -739,8 +740,27 @@ public abstract class VulkanApplication extends Thread {
                 default:
                     throw new IllegalStateException("Unexpected value: " + rasterizationStateOptions.frontFace);
             }
+            switch (rasterizationStateOptions.cullMode) {
+                case INHERIT_FROM_VIEWPORT:
+                    rasterizer.cullMode(viewport.cullMode);
+                    break;
+                case NONE:
+                    rasterizer.cullMode(VK_CULL_MODE_NONE);
+                    break;
+                case FRONT_BIT:
+                    rasterizer.cullMode(VK_CULL_MODE_FRONT_BIT);
+                    break;
+                case BACK_BIT:
+                    rasterizer.cullMode(VK_CULL_MODE_BACK_BIT);
+                    break;
+                case FRONT_AND_BACK:
+                    rasterizer.cullMode(VK_CULL_MODE_FRONT_AND_BACK);
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + rasterizationStateOptions.cullMode);
+            }
 //            rasterizer.cullMode(VK_CULL_MODE_BACK_BIT);
-            rasterizer.cullMode(viewport.cullMode);
+//            rasterizer.cullMode(viewport.cullMode);
             rasterizer.depthBiasEnable(Arrays.contains(viewport.dynamicStates, VK_DYNAMIC_STATE_DEPTH_BIAS));
 
             // ===> MULTISAMPLING <===
@@ -752,14 +772,18 @@ public abstract class VulkanApplication extends Thread {
 
             VkPipelineDepthStencilStateCreateInfo depthStencil = VkPipelineDepthStencilStateCreateInfo.calloc(stack);
             depthStencil.sType(VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO);
-            depthStencil.depthTestEnable(true);
-            depthStencil.depthWriteEnable(true);
-            depthStencil.depthCompareOp(VK_COMPARE_OP_LESS);
+            depthStencil.depthTestEnable(depthStencilStateOptions.depthTestEnable);
+            depthStencil.depthWriteEnable(depthStencilStateOptions.depthWriteEnable);
+            if (viewport.camera.reversedZMapping)
+                depthStencil.depthCompareOp(VK_COMPARE_OP_GREATER);
+            else
+                depthStencil.depthCompareOp(VK_COMPARE_OP_LESS);
 //            depthStencil.depthCompareOp(VK_COMPARE_OP_LESS_OR_EQUAL); // todo check the difference
-            depthStencil.depthBoundsTestEnable(false);
-            depthStencil.minDepthBounds(0.0f); // Optional
-            depthStencil.maxDepthBounds(1.0f); // Optional
-            depthStencil.stencilTestEnable(false);
+            depthStencil.depthBoundsTestEnable(depthStencilStateOptions.depthBoundsTestEnable);
+            depthStencil.minDepthBounds(depthStencilStateOptions.minDepthBounds);
+            depthStencil.maxDepthBounds(depthStencilStateOptions.maxDepthBounds);
+            depthStencil.stencilTestEnable(depthStencilStateOptions.stencilTestEnable);
+
 
             // ===> COLOR BLENDING <===
             VkPipelineColorBlendAttachmentState.Buffer colorBlendAttachments = VkPipelineColorBlendAttachmentState.calloc(viewport.getColorAttachmentsCount(), stack);

@@ -229,12 +229,17 @@ public class Material {
                 constants,
                 pushConstants,
                 createRasterizationStateOptions(),
+                createDepthStencilStateOptions(),
                 descriptorSetLayouts
         );
     }
 
     protected RasterizationStateOptions createRasterizationStateOptions() {
         return new RasterizationStateOptions();
+    }
+
+    protected DepthStencilStateOptions createDepthStencilStateOptions() {
+        return new DepthStencilStateOptions();
     }
 
     public static class VertexLayout {
