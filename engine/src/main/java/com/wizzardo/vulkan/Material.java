@@ -259,51 +259,76 @@ public class Material {
             return offset;
         }
 
-        public static class BindingDescription {
-            public static final BindingDescription F2 = new BindingDescription(2 * Float.BYTES, VK_FORMAT_R32G32_SFLOAT);
-            public static final BindingDescription F3 = new BindingDescription(3 * Float.BYTES, VK_FORMAT_R32G32B32_SFLOAT);
-            public static final BindingDescription F4 = new BindingDescription(4 * Float.BYTES, VK_FORMAT_R32G32B32A32_SFLOAT);
+        public static class BindingDescription<T> {
+            public static final BindingDescription<Float> F1 = new BindingDescription<>(1 * Float.BYTES, VK_FORMAT_R32_SFLOAT, (v, buffer) -> buffer.putFloat(v));
+            public static final BindingDescription<Vector2fc> F2 = new BindingDescription<>(2 * Float.BYTES, VK_FORMAT_R32G32_SFLOAT, (v, buffer) -> {
+                buffer.putFloat(v.x());
+                buffer.putFloat(v.y());
+            });
+            public static final BindingDescription<Vector3fc> F3 = new BindingDescription<>(3 * Float.BYTES, VK_FORMAT_R32G32B32_SFLOAT, (v, buffer) -> {
+                buffer.putFloat(v.x());
+                buffer.putFloat(v.y());
+                buffer.putFloat(v.z());
+            });
+            public static final BindingDescription<Quaternionfc> F4 = new BindingDescription<>(4 * Float.BYTES, VK_FORMAT_R32G32B32A32_SFLOAT, (v, buffer) -> {
+                buffer.putFloat(v.x());
+                buffer.putFloat(v.y());
+                buffer.putFloat(v.z());
+                buffer.putFloat(v.w());
+            });
 
-            public static final BindingDescription I1U = new BindingDescription(1 * Integer.BYTES, VK_FORMAT_R32_UINT);
+            public static final BindingDescription<Integer> I1U = new BindingDescription<>(1 * Integer.BYTES, VK_FORMAT_R32_UINT, (v, buffer) -> buffer.putInt(v));
 
-            public static final BindingDescription I1 = new BindingDescription(1 * Integer.BYTES, VK_FORMAT_R32_SINT);
-            public static final BindingDescription I2 = new BindingDescription(2 * Integer.BYTES, VK_FORMAT_R32G32_SINT);
-            public static final BindingDescription I3 = new BindingDescription(3 * Integer.BYTES, VK_FORMAT_R32G32B32_SINT);
-            public static final BindingDescription I4 = new BindingDescription(4 * Integer.BYTES, VK_FORMAT_R32G32B32A32_SINT);
+            public static final BindingDescription<Integer> I1 = new BindingDescription<>(1 * Integer.BYTES, VK_FORMAT_R32_SINT, (v, buffer) -> buffer.putInt(v));
+            public static final BindingDescription<Vector2ic> I2 = new BindingDescription<>(2 * Integer.BYTES, VK_FORMAT_R32G32_SINT, (v, buffer) -> {
+                buffer.putInt(v.x());
+                buffer.putInt(v.y());
+            });
+            public static final BindingDescription<Vector3ic> I3 = new BindingDescription<>(3 * Integer.BYTES, VK_FORMAT_R32G32B32_SINT, (v, buffer) -> {
+                buffer.putInt(v.x());
+                buffer.putInt(v.y());
+                buffer.putInt(v.z());
+            });
+            public static final BindingDescription<Vector4ic> I4 = new BindingDescription<>(4 * Integer.BYTES, VK_FORMAT_R32G32B32A32_SINT, (v, buffer) -> {
+                buffer.putInt(v.x());
+                buffer.putInt(v.y());
+                buffer.putInt(v.z());
+                buffer.putInt(v.w());
+            });
 
-            public static final BindingDescription B4UNORM = new BindingDescription(4 * Byte.BYTES, VK_FORMAT_R8G8B8A8_UNORM);
+            public static final BindingDescription<Integer> B4UNORM = new BindingDescription<>(4 * Byte.BYTES, VK_FORMAT_R8G8B8A8_UNORM, (v, buffer) -> buffer.putInt(v));
 
-            public static final BindingDescription POSITION = new BindingDescription(F3, (vertex, buffer) -> {
+            public static final BindingDescription<Vertex> POSITION = new BindingDescription<>(F3, (vertex, buffer) -> {
                 buffer.putFloat(vertex.pos.x());
                 buffer.putFloat(vertex.pos.y());
                 buffer.putFloat(vertex.pos.z());
             });
-            public static final BindingDescription NORMAL = new BindingDescription(F3, (vertex, buffer) -> {
+            public static final BindingDescription<Vertex> NORMAL = new BindingDescription<>(F3, (vertex, buffer) -> {
                 buffer.putFloat(vertex.normal.x());
                 buffer.putFloat(vertex.normal.y());
                 buffer.putFloat(vertex.normal.z());
             });
-            public static final BindingDescription TANGENT = new BindingDescription(F3, (vertex, buffer) -> {
+            public static final BindingDescription<Vertex> TANGENT = new BindingDescription<>(F3, (vertex, buffer) -> {
                 buffer.putFloat(vertex.tangent.x());
                 buffer.putFloat(vertex.tangent.y());
                 buffer.putFloat(vertex.tangent.z());
             });
-            public static final BindingDescription COLOR = new BindingDescription(F3, (vertex, buffer) -> {
+            public static final BindingDescription<Vertex> COLOR = new BindingDescription<>(F3, (vertex, buffer) -> {
                 buffer.putFloat(vertex.color.x());
                 buffer.putFloat(vertex.color.y());
                 buffer.putFloat(vertex.color.z());
             });
-            public static final BindingDescription TEXTURE_COORDINATES = new BindingDescription(F2, (vertex, buffer) -> {
+            public static final BindingDescription<Vertex> TEXTURE_COORDINATES = new BindingDescription<>(F2, (vertex, buffer) -> {
                 buffer.putFloat(vertex.texCoords.x());
                 buffer.putFloat(vertex.texCoords.y());
             });
-            public static final BindingDescription BONE_INDEX = new BindingDescription(I4, (vertex, buffer) -> {
+            public static final BindingDescription<Vertex> BONE_INDEX = new BindingDescription<>(I4, (vertex, buffer) -> {
                 buffer.putInt(vertex.boneIndexes.x());
                 buffer.putInt(vertex.boneIndexes.y());
                 buffer.putInt(vertex.boneIndexes.z());
                 buffer.putInt(vertex.boneIndexes.w());
             });
-            public static final BindingDescription BONE_WEIGHT = new BindingDescription(F4, (vertex, buffer) -> {
+            public static final BindingDescription<Vertex> BONE_WEIGHT = new BindingDescription<>(F4, (vertex, buffer) -> {
                 buffer.putFloat(vertex.boneWeights.x());
                 buffer.putFloat(vertex.boneWeights.y());
                 buffer.putFloat(vertex.boneWeights.z());
@@ -312,22 +337,26 @@ public class Material {
 
             public final int size;
             public final int format;
-            public final BiConsumer<Vertex, ByteBuffer> bufferSetter;
+            public final BiConsumer<T, ByteBuffer> bufferSetter;
 
-            public BindingDescription(int size, int format) {
-                this(size, format, null);
-            }
+//            public BindingDescription(int size, int format) {
+//                this(size, format, null);
+//            }
 
-            public BindingDescription(int size, int format, BiConsumer<Vertex, ByteBuffer> bufferSetter) {
+            public BindingDescription(int size, int format, BiConsumer<T, ByteBuffer> bufferSetter) {
                 this.size = size;
                 this.format = format;
                 this.bufferSetter = bufferSetter;
             }
 
-            public BindingDescription(BindingDescription bindingDescription, BiConsumer<Vertex, ByteBuffer> bufferSetter) {
+            public BindingDescription(BindingDescription bindingDescription, BiConsumer<T, ByteBuffer> bufferSetter) {
                 this.size = bindingDescription.size;
                 this.format = bindingDescription.format;
                 this.bufferSetter = bufferSetter;
+            }
+
+            public void put(ByteBuffer buffer, T value) {
+                bufferSetter.consume(value, buffer);
             }
         }
     }
