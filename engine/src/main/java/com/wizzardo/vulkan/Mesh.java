@@ -2,10 +2,11 @@ package com.wizzardo.vulkan;
 
 import org.joml.Vector3f;
 import org.lwjgl.vulkan.VkCommandBuffer;
-import org.lwjgl.vulkan.VkDevice;
 
-import static org.lwjgl.vulkan.VK10.VK_INDEX_TYPE_UINT32;
-import static org.lwjgl.vulkan.VK10.vkCmdDrawIndexed;
+import java.nio.LongBuffer;
+
+import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK10.vkCmdBindIndexBuffer;
 
 public class Mesh {
     protected Armature armature;
@@ -13,6 +14,7 @@ public class Mesh {
     protected int[] indices;
     protected BufferHolder vertexBuffer;
     protected BufferHolder indexBuffer;
+    protected BufferHolder instanceBuffer;
     protected BoundingBox boundingBox;
     protected int indexBufferType = VK_INDEX_TYPE_UINT32;
 
@@ -45,6 +47,14 @@ public class Mesh {
         this.vertexBuffer = vertexBuffer;
     }
 
+    public BufferHolder getInstanceBuffer() {
+        return instanceBuffer;
+    }
+
+    public void setInstanceBuffer(BufferHolder instanceBuffer) {
+        this.instanceBuffer = instanceBuffer;
+    }
+
     public BufferHolder getIndexBuffer() {
         return indexBuffer;
     }
@@ -75,7 +85,22 @@ public class Mesh {
     }
 
     public void draw(VkCommandBuffer commandBuffer, Material material, VulkanApplication.CommandBufferTempData tempData) {
-        vkCmdDrawIndexed(commandBuffer, getIndicesLength(), 1, 0, 0, 0);
+        if (instanceBuffer != null) {
+            int count = (int) (instanceBuffer.size / instanceBuffer.sizeof);
+            vkCmdDrawIndexed(commandBuffer, getIndicesLength(), count, 0, 0, 0);
+        } else {
+            vkCmdDrawIndexed(commandBuffer, getIndicesLength(), 1, 0, 0, 0);
+        }
+    }
+
+    public void bindBuffers(VkCommandBuffer commandBuffer, VulkanApplication.CommandBufferTempData tempData) {
+        LongBuffer vertexBuffers = tempData.pLong_1.put(0, vertexBuffer.buffer);
+        LongBuffer offsets = tempData.pLong_2.put(0, 0l);
+        vkCmdBindVertexBuffers(commandBuffer, 0, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, indexBufferType);
+        if (instanceBuffer != null) {
+            vkCmdBindVertexBuffers(commandBuffer, 1, tempData.pLong_1.put(0, instanceBuffer.buffer), offsets);
+        }
     }
 
     public BoundingBox getBoundingBox() {

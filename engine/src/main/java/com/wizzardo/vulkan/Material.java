@@ -7,6 +7,7 @@ import com.wizzardo.vulkan.material.PushConstantInfo;
 import com.wizzardo.vulkan.material.SpecializationConstantInfo;
 import com.wizzardo.vulkan.material.Uniform;
 import com.wizzardo.vulkan.misc.ResourceChangeListener;
+import org.joml.*;
 import org.lwjgl.vulkan.VkDevice;
 
 import java.io.IOException;
@@ -26,12 +27,14 @@ public class Material {
             VertexLayout.BindingDescription.COLOR,
             VertexLayout.BindingDescription.TEXTURE_COORDINATES
     );
+    public static final VertexLayout EMPTY_INSTANCE_LAYOUT = new VertexLayout();
 
     protected String vertexShader;
     protected String fragmentShader;
     protected List<TextureImage> textures = Collections.emptyList();
     protected TextureSampler textureSampler;
     protected VertexLayout vertexLayout = DEFAULT_VERTEX_LAYOUT;
+    protected VertexLayout instanceBindingLayout = EMPTY_INSTANCE_LAYOUT;
     protected boolean withUBO = true;
     protected List<SpecializationConstantInfo> constants = Collections.emptyList();
     protected List<PushConstantInfo> pushConstants = Collections.emptyList();
@@ -226,6 +229,7 @@ public class Material {
                 fragShaderSPIRV,
                 viewport,
                 vertexLayout,
+                instanceBindingLayout,
                 constants,
                 pushConstants,
                 createRasterizationStateOptions(),

@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class Utils {
     static void memcpy(ByteBuffer buffer, Vertex[] vertices, Material.VertexLayout vertexLayout) {
@@ -108,7 +109,7 @@ public class Utils {
         return buffer.rewind();
     }
 
-    static BufferHolder createVertexBuffer(
+    public static BufferHolder createVertexBuffer(
             VkPhysicalDevice physicalDevice,
             VkDevice device,
             VkQueue queue,
@@ -116,8 +117,20 @@ public class Utils {
             Vertex[] vertices,
             Material.VertexLayout vertexLayout
     ) {
+        return createVertexBuffer(physicalDevice, device, queue, commandPool, vertices.length, vertexLayout.sizeof, buffer -> memcpy(buffer, vertices, vertexLayout));
+    }
+
+    public static BufferHolder createVertexBuffer(
+            VkPhysicalDevice physicalDevice,
+            VkDevice device,
+            VkQueue queue,
+            long commandPool,
+            long length,
+            int sizeof,
+            Consumer<ByteBuffer> setter
+    ) {
         try (MemoryStack stack = stackPush()) {
-            long bufferSize = (long) vertexLayout.sizeof * vertices.length;
+            long bufferSize = sizeof * length;
 
             LongBuffer pBuffer = stack.mallocLong(1);
             LongBuffer pBufferMemory = stack.mallocLong(1);
@@ -136,7 +149,8 @@ public class Utils {
             PointerBuffer data = stack.mallocPointer(1);
 
             vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, data);
-            memcpy(data.getByteBuffer(0, (int) bufferSize), vertices, vertexLayout);
+            ByteBuffer buffer = data.getByteBuffer(0, (int) bufferSize);
+            setter.accept(buffer);
             vkUnmapMemory(device, stagingBufferMemory);
 
             VulkanBuffers.createBuffer(
@@ -155,7 +169,7 @@ public class Utils {
 
             vkDestroyBuffer(device, stagingBuffer, null);
             vkFreeMemory(device, stagingBufferMemory, null);
-            return new BufferHolder(vertexBuffer, vertexBufferMemory, bufferSize, vertexLayout.sizeof);
+            return new BufferHolder(vertexBuffer, vertexBufferMemory, bufferSize, sizeof);
         }
     }
 

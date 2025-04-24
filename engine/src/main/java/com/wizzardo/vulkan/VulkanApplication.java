@@ -648,6 +648,7 @@ public abstract class VulkanApplication extends Thread {
             ByteBuffer fragShaderSPIRV,
             Viewport viewport,
             Material.VertexLayout vertexLayout,
+            Material.VertexLayout instanceBindingLayout,
             List<SpecializationConstantInfo> constants,
             List<PushConstantInfo> pushconstants,
             RasterizationStateOptions rasterizationStateOptions,
@@ -680,8 +681,8 @@ public abstract class VulkanApplication extends Thread {
 
             VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkPipelineVertexInputStateCreateInfo.calloc(stack);
             vertexInputInfo.sType(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
-            vertexInputInfo.pVertexBindingDescriptions(Vertex.getBindingDescription(stack, vertexLayout));
-            vertexInputInfo.pVertexAttributeDescriptions(Vertex.getAttributeDescriptions(stack, vertexLayout));
+            vertexInputInfo.pVertexBindingDescriptions(Vertex.getBindingDescription(stack, vertexLayout, instanceBindingLayout));
+            vertexInputInfo.pVertexAttributeDescriptions(Vertex.getAttributeDescriptions(stack, vertexLayout, instanceBindingLayout));
 
 
             // ===> ASSEMBLY STAGE <===
@@ -1198,14 +1199,6 @@ public abstract class VulkanApplication extends Thread {
             recordCommandPreviousGraphicsPipeline = graphicsPipeline;
         }
 
-        if (mesh != recordCommandPreviousMesh) {
-            LongBuffer vertexBuffers = tempData.pLong_1.put(0, mesh.getVertexBuffer().buffer);
-            LongBuffer offsets = tempData.pLong_2.put(0, 0l);
-            vkCmdBindVertexBuffers(commandBuffer, 0, vertexBuffers, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, mesh.getIndexBuffer().buffer, 0, mesh.getIndexBufferType()); // todo: use VK_INDEX_TYPE_UINT16 if short is enough
-            recordCommandPreviousMesh = mesh;
-        }
-
         if (bindlessTexturesEnabled) {
             vkCmdBindDescriptorSets(
                     commandBuffer,
@@ -1224,6 +1217,11 @@ public abstract class VulkanApplication extends Thread {
                     tempData.pLong_1.put(0, descriptorSet),
                     null
             );
+        }
+
+        if (mesh != recordCommandPreviousMesh) {
+            mesh.bindBuffers(commandBuffer, tempData);
+            recordCommandPreviousMesh = mesh;
         }
 
         mesh.draw(commandBuffer, material, tempData);
