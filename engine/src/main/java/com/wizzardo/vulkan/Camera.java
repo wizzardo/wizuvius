@@ -14,18 +14,46 @@ public class Camera {
     protected int screenWidth;
     protected int screenHeight;
     protected Vector3f upVector = new Vector3f(Vectors.UNIT_Z);
+    protected boolean reversedZMapping;
 
     public void setProjection(float fieldOfViewDegreesY, float aspectRation, float nearPlane, float farPlane) {
-        projection.setPerspective((float) Math.toRadians(fieldOfViewDegreesY), aspectRation, nearPlane, farPlane);
-        projection.m11(projection.m11() * -1);
+        if (!reversedZMapping) {
+            projection.setPerspective((float) Math.toRadians(fieldOfViewDegreesY), aspectRation, nearPlane, farPlane, true);
+            projection.m11(projection.m11() * -1);
+        } else {
+            projection.zero();
+            float h = org.joml.Math.tan(fieldOfViewDegreesY * 0.5f);
+            projection.m00(1.0f / (h * aspectRation))
+                    .m11(-1.0f / h);
+            boolean farInf = farPlane > 0 && Float.isInfinite(farPlane);
+            boolean nearInf = nearPlane > 0 && Float.isInfinite(nearPlane);
+            if (farInf) {
+                // See: "Infinite Projection Matrix" (http://www.terathon.com/gdc07_lengyel.pdf)
+                float e = 1E-6f;
+                projection.m22(0f)
+                        .m32(nearPlane);
+            } else if (nearInf) {
+                float e = 1E-6f;
+                projection.m22(-1.0f)
+                        .m32(-farPlane);
+            } else {
+                projection.m22(nearPlane / -(nearPlane - farPlane))
+                        .m32(farPlane * nearPlane / -(nearPlane - farPlane));
+            }
+            projection.m23(-1.0f);
+        }
     }
 
     public void setProjection(Matrix4f projection) {
         this.projection.set(projection);
     }
 
-    public Matrix4f getProjection(){
+    public Matrix4f getProjection() {
         return projection;
+    }
+
+    public Matrix4f getView() {
+        return view;
     }
 
     public Vector3f getLocation() {
@@ -64,27 +92,26 @@ public class Camera {
         return getRotationColumn(rotation, 0, dest);
     }
 
-    public Vector3f getUpVector(){
+    public Vector3f getUpVector() {
         return upVector;
     }
 
-    /**
-     * Converts the given position from world space to screen space.
-     *
-     * @param worldPosition a location in world coordinates (not null, unaffected)
-     * @param store         storage for the result (modified if not null)
-     * @return a (3-D) location vector (in screen coordinates, either
-     * <code>store</code> or a new vector)
-     */
-    public Vector3f getScreenCoordinates(Vector3f worldPosition, Vector3f store, int width, int height) {
+    public Vector3f getScreenCoordinates(Vector3f worldPosition, Vector3f store) {
         if (store == null)
             store = new Vector3f();
 
-        float w = multProj(projection, store, store);
-        store.div(w);
 
-        store.x = ((store.x + 1f) / 2f) * width;
-        store.y = ((store.y + 1f) / 2f) * height;
+        TempVars vars = TempVars.get();
+        Matrix4f viewProjection = projection.mul(view, vars.tempMat4);
+//        Matrix4f viewProjection = view.mul(projection, vars.tempMat4);
+//        float w = multProj(viewProjection, worldPosition, store);
+//        store.div(w);
+
+        worldPosition.mulProject(viewProjection, store);
+        vars.release();
+
+        store.x = ((store.x + 1f) / 2f) * screenWidth;
+        store.y = ((store.y + 1f) / 2f) * screenHeight;
         store.z = (store.z + 1f) / 2f;
 
         return store;
@@ -227,7 +254,7 @@ public class Camera {
     }
 
 
-    protected static Matrix4f fromFrame(Vector3fc location, Vector3fc direction, Vector3fc up, Matrix4f source, TempVars vars) {
+    public static Matrix4f fromFrame(Vector3fc location, Vector3fc direction, Vector3fc up, Matrix4f source, TempVars vars) {
         Vector3f fwdVector = vars.vect1.set(direction);
         Vector3f leftVector = vars.vect2.set(fwdVector).cross(up);
         Vector3f upVector = vars.vect3.set(leftVector).cross(fwdVector);
@@ -374,7 +401,7 @@ public class Camera {
         return store;
     }
 
-    protected void updateViewMatrix() {
+    public void updateViewMatrix() {
         TempVars vars = TempVars.get();
         Camera.fromFrame(location, getDirection(vars.vect10), getUp(vars.vect9), view, vars);
         vars.release();
@@ -386,5 +413,13 @@ public class Camera {
 
     public float getFarPlane() {
         return projection.perspectiveFar();
+    }
+
+    public void setReversedZMappingEnabled(boolean enabled) {
+        this.reversedZMapping = enabled;
+    }
+
+    public boolean isReversedZMappingEnabled() {
+        return reversedZMapping;
     }
 }
