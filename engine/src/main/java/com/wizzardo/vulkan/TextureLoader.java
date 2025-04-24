@@ -383,23 +383,25 @@ public class TextureLoader {
         int width = texture.baseWidth();
         int height = texture.baseHeight();
 
-        VkBufferImageCopy.Buffer regions = VkBufferImageCopy.calloc(texture.numLevels(), stack);
-        for (int i = 0; i < regions.capacity(); i++) {
-            VkBufferImageCopy region = regions.get(i);
-            int result = KTX.ktxTexture_GetImageOffset(texture, i, 0, 0, pointerBuffer);
-            if (result != KTX.KTX_SUCCESS) {
-                throw new RuntimeException("ktxTexture_GetImageOffset failed: " + regions);
+        VkBufferImageCopy.Buffer regions = VkBufferImageCopy.calloc(texture.numLevels() * texture.numLayers(), stack);
+        for (int layer = 0; layer < texture.numLayers(); layer++) {
+            for (int mipsLevel = 0; mipsLevel < texture.numLevels(); mipsLevel++) {
+                VkBufferImageCopy region = regions.get(mipsLevel + layer * texture.numLevels());
+                int result = KTX.ktxTexture_GetImageOffset(texture, mipsLevel, layer, 0, pointerBuffer);
+                if (result != KTX.KTX_SUCCESS) {
+                    throw new RuntimeException("ktxTexture_GetImageOffset failed: " + regions);
+                }
+//              region.bufferOffset(texture.getImageOffset(i, 0, 0));
+                region.bufferOffset(pointerBuffer.get(0));
+                region.bufferRowLength(0);   // Tightly packed
+                region.bufferImageHeight(0);  // Tightly packed
+                region.imageSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+                region.imageSubresource().mipLevel(mipsLevel);
+                region.imageSubresource().baseArrayLayer(layer);
+                region.imageSubresource().layerCount(1);
+                region.imageOffset().set(0, 0, 0);
+                region.imageExtent(VkExtent3D.calloc(stack).set(width >> mipsLevel, height >> mipsLevel, 1));
             }
-//            region.bufferOffset(texture.getImageOffset(i, 0, 0));
-            region.bufferOffset(pointerBuffer.get(0));
-            region.bufferRowLength(0);   // Tightly packed
-            region.bufferImageHeight(0);  // Tightly packed
-            region.imageSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
-            region.imageSubresource().mipLevel(i);
-            region.imageSubresource().baseArrayLayer(0);
-            region.imageSubresource().layerCount(1);
-            region.imageOffset().set(0, 0, 0);
-            region.imageExtent(VkExtent3D.calloc(stack).set(width >> i, height >> i, 1));
         }
 
         vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regions);
@@ -533,6 +535,7 @@ public class TextureLoader {
             int width = texture.baseWidth();
             int height = texture.baseHeight();
             int mipLevels = texture.numLevels();
+            int layers = texture.numLayers();
 
             VulkanBuffers.createBuffer(
                     physicalDevice,
@@ -554,6 +557,7 @@ public class TextureLoader {
             LongBuffer pTextureImageMemory = stack.mallocLong(1);
             VulkanImages.createImage(physicalDevice, device, width, height,
                     mipLevels,
+                    layers,
                     format,
                     VK_IMAGE_TILING_OPTIMAL,
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -571,7 +575,7 @@ public class TextureLoader {
             barrier.image(textureImage);
             barrier.subresourceRange().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
             barrier.subresourceRange().baseMipLevel(0);
-            barrier.subresourceRange().layerCount(1);
+            barrier.subresourceRange().layerCount(layers);
             barrier.subresourceRange().levelCount(mipLevels);
             barrier.srcAccessMask(0);
             barrier.dstAccessMask(VK_ACCESS_TRANSFER_WRITE_BIT);
@@ -610,7 +614,12 @@ public class TextureLoader {
             vkDestroyBuffer(device, pStagingBuffer.get(0), null);
             vkFreeMemory(device, pStagingBufferMemory.get(0), null);
 
-            long textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+            long textureImageView;
+            if (layers == 1) {
+                textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+            } else {
+                textureImageView = VulkanImages.createImageView(device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels, layers);
+            }
 
             memoryUsed.addAndGet(imageSize);
             return new TextureImage(application, mipLevels, textureImage, textureImageMemory, textureImageView, imageSize);

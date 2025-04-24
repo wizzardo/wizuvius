@@ -34,6 +34,29 @@ public class VulkanImages {
         }
     }
 
+    static long createImageView(VkDevice device, long image, int format, int aspectFlags, int mipLevels, int layers) {
+        try (MemoryStack stack = stackPush()) {
+            VkImageViewCreateInfo viewInfo = VkImageViewCreateInfo.calloc(stack);
+            viewInfo.sType(VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
+            viewInfo.image(image);
+            viewInfo.viewType(VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+            viewInfo.format(format);
+            viewInfo.subresourceRange().aspectMask(aspectFlags);
+            viewInfo.subresourceRange().baseMipLevel(0);
+            viewInfo.subresourceRange().levelCount(mipLevels);
+            viewInfo.subresourceRange().baseArrayLayer(0);
+            viewInfo.subresourceRange().layerCount(layers);
+
+            LongBuffer pImageView = stack.mallocLong(1);
+
+            if (vkCreateImageView(device, viewInfo, null, pImageView) != VK_SUCCESS) {
+                throw new RuntimeException("Failed to create texture image view");
+            }
+
+            return pImageView.get(0);
+        }
+    }
+
     public static class ImageInfo{
        public final long imagePointer;
        public final long memoryPointer;
@@ -59,6 +82,23 @@ public class VulkanImages {
             LongBuffer pTextureImage,
             LongBuffer pTextureImageMemory
     ) {
+        return createImage(physicalDevice, device, width, height, mipLevels, 1, format, tiling, usage, memProperties, pTextureImage, pTextureImageMemory);
+    }
+
+    static ImageInfo createImage(
+            VkPhysicalDevice physicalDevice,
+            VkDevice device,
+            int width,
+            int height,
+            int mipLevels,
+            int layers,
+            int format,
+            int tiling,
+            int usage,
+            int memProperties,
+            LongBuffer pTextureImage,
+            LongBuffer pTextureImageMemory
+    ) {
         try (MemoryStack stack = stackPush()) {
             VkImageCreateInfo imageInfo = VkImageCreateInfo.calloc(stack);
             imageInfo.sType(VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
@@ -67,7 +107,7 @@ public class VulkanImages {
             imageInfo.extent().height(height);
             imageInfo.extent().depth(1);
             imageInfo.mipLevels(mipLevels);
-            imageInfo.arrayLayers(1);
+            imageInfo.arrayLayers(layers);
             imageInfo.format(format);
             imageInfo.tiling(tiling);
             imageInfo.initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
