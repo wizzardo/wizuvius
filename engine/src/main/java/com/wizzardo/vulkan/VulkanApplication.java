@@ -1078,6 +1078,7 @@ public abstract class VulkanApplication extends Thread {
         public final VkRect2D renderArea;
         public final VkRect2D.Buffer scissors;
         public final VkClearValue.Buffer[] clearValues;
+        public final VkClearValue.Buffer[] clearValuesReversedZ;
         public final LongBuffer pLong_1;
         public final LongBuffer pLong_2;
         public final LongBuffer pLongs2_1;
@@ -1101,6 +1102,15 @@ public abstract class VulkanApplication extends Thread {
                     clearValues.get(j).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 0.0f));
                 }
                 clearValues.get(clearValues.capacity() - 1).depthStencil().set(1.0f, 0);
+            }
+
+            clearValuesReversedZ = new VkClearValue.Buffer[4];
+            for (int i = 0; i < clearValuesReversedZ.length; i++) {
+                VkClearValue.Buffer clearValues = this.clearValuesReversedZ[i] = VkClearValue.calloc(i + 1, stack);
+                for (int j = 0; j < i; j++) {
+                    clearValues.get(j).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 0.0f));
+                }
+                clearValues.get(clearValues.capacity() - 1).depthStencil().set(0f, 0);
             }
 
             pLong_1 = stack.longs(0);
@@ -1140,7 +1150,11 @@ public abstract class VulkanApplication extends Thread {
         renderArea.offset(viewport.getOffset());
         renderArea.extent(viewport.getExtent());
         renderPassInfo.renderArea(renderArea);
-        renderPassInfo.pClearValues(tempData.clearValues[viewport.colorAttachmentsCount]);
+        if (viewport.getCamera().reversedZMapping)
+            renderPassInfo.pClearValues(tempData.clearValuesReversedZ[viewport.colorAttachmentsCount]);
+        else
+            renderPassInfo.pClearValues(tempData.clearValues[viewport.colorAttachmentsCount]);
+
         renderPassInfo.framebuffer(viewport.getSwapChainFramebuffers().get(imageIndex));
 
         vkCmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
