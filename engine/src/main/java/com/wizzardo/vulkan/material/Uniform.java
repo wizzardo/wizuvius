@@ -4,9 +4,7 @@ import com.wizzardo.vulkan.ResourceCleaner;
 import com.wizzardo.vulkan.UniformBuffer;
 import com.wizzardo.vulkan.UniformBuffers;
 import com.wizzardo.vulkan.VulkanApplication;
-import org.joml.Matrix4f;
-import org.joml.Vector2f;
-import org.joml.Vector3f;
+import org.joml.*;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 
@@ -123,6 +121,28 @@ public abstract class Uniform {
             byteBuffer.putFloat(value.x);
             byteBuffer.putFloat(value.y);
             byteBuffer.putFloat(value.z);
+        }
+    }
+
+    public static class Vec4 extends Uniform {
+        protected Quaternionf value;
+
+        public Vec4(VulkanApplication app, int stage, int binding, Quaternionf value) {
+            super(app, stage, java.lang.Float.BYTES * 4, binding);
+            this.value = value;
+        }
+
+        public void set(Quaternionf value) {
+            this.value = value;
+            update();
+        }
+
+        @Override
+        protected void write(ByteBuffer byteBuffer) {
+            byteBuffer.putFloat(value.x);
+            byteBuffer.putFloat(value.y);
+            byteBuffer.putFloat(value.z);
+            byteBuffer.putFloat(value.w);
         }
     }
 
